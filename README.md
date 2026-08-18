@@ -11,5 +11,5 @@ AI-Powered Event Photo Discovery System
 - Subhajit Dey
 - frontend Akkan Khan
 - Debajyoti Sahoo
-- Debojyoti Chokroborti
+- Debjyoti Chakraborty
 - Pratik Murmu
