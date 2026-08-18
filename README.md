@@ -8,7 +8,7 @@ AI-Powered Event Photo Discovery System
 
 ## Team Members
 
-- Subhajit Dey
+- leader Subhajit Dey
 - frontend Akkan Khan
 - Debajyoti Sahoo
 - Debojyoti Chokroborti
