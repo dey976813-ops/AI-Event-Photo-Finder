@@ -27,5 +27,5 @@ Storage: Supabase Storage
 - Subhajit Dey — Team Lead / Integration
 - Akkan Khan — Frontend Lead
 - Debajyoti Sahoo — Database & Cloud
-- Debojyoti Chokroborti — AI/ML
+- Debjyoti Chokrobortyy — AI/ML
 - Pratik Murmu — Backend / API / Testing
