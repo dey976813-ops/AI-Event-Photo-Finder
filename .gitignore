@@ -141,7 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+<<<<<<< HEAD
 __pycache__/
 .venv/
 *.pyc
+=======
+>>>>>>> 31d71c2 (setup: update gitignore and add env example)
 .env
