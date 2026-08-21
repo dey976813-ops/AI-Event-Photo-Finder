@@ -7,16 +7,86 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Dependencies / builds
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Vite
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Gatsby
+.cache/
+
+# VuePress
+.vuepress/dist/
+.temp/
+
+# SvelteKit
+.svelte-kit/
+
+# VitePress
+**/.vitepress/dist/
+**/.vitepress/cache/
+
+# Docusaurus
+.docusaurus/
+
+# Serverless
+.serverless/
+
+# FuseBox
+.fusebox/
+
+# DynamoDB Local
+.dynamodb/
+
+# Firebase
+.firebase/
+
+# TernJS
+.tern-port
+
+# VS Code
 .vscode/*
 !.vscode/extensions.json
-.idea
+.vscode-test/
+
+# JetBrains
+.idea/
+
+# OS
 .DS_Store
+
+# pnpm
+.pnpm-store/
+
+# Yarn
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Visual Studio
 *.suo
 *.ntvs*
 *.njsproj
