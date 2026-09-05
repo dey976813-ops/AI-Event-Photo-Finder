@@ -3,9 +3,11 @@ from deepface import DeepFace
 import numpy as np
 import cv2
 import os
+import glob
 
 app = FastAPI(title="AI Photo Finder")
 
+# --- MODEL OPTIMIZATION ---
 MODEL_NAME = "ArcFace"
 MODEL_LOADED = False
 
@@ -36,12 +38,9 @@ async def create_embedding(file: UploadFile = File(...)):
         if img is None:
             return {"face_found": False, "error": "INVALID_IMAGE", "message": "Invalid or corrupt image file"}
         
-        # STRICT DETECTION: enforce_detection=True
         try:
             embeddings = DeepFace.represent(img_path=img, model_name=MODEL_NAME, detector_backend="retinaface", enforce_detection=True)
         except Exception as e:
-            # Agar RetinaFace ko face nahi mila, toh woh error throw karega
-            # Humein woh error pakad kar "NO_FACE" return karna hai
             if "Face could not be detected" in str(e) or "no face" in str(e).lower():
                 return {"face_found": False, "error": "NO_FACE", "message": "No face detected"}
             else:
@@ -93,3 +92,50 @@ async def process_event_photo(file: UploadFile = File(...)):
 
     except Exception as e:
         return {"status": "error", "error": "AI_FAILURE", "message": str(e), "face_count": 0, "embeddings": []}
+
+@app.post("/match")
+async def match_face(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        nparr = np.frombuffer(contents, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return {"matches": [], "count": 0, "message": "Invalid or corrupt image file"}
+        
+        try:
+            embeddings = DeepFace.represent(img_path=img, model_name=MODEL_NAME, detector_backend="retinaface", enforce_detection=True)
+        except Exception as e:
+            if "Face could not be detected" in str(e) or "no face" in str(e).lower():
+                return {"matches": [], "count": 0, "message": "No face detected"}
+            else:
+                return {"matches": [], "count": 0, "message": str(e)}
+        
+        if not embeddings:
+            return {"matches": [], "count": 0, "message": "No face detected"}
+        
+        query_embedding = np.array(embeddings[0]["embedding"])
+
+        # Load database from test_photos folder
+        results = []
+        photo_db = []
+        if os.path.exists('test_photos'):
+            for img_path in glob.glob('test_photos/*'):
+                try:
+                    reps = DeepFace.represent(img_path=img_path, model_name=MODEL_NAME, detector_backend="retinaface", enforce_detection=True)
+                    if reps:
+                        photo_db.append({"photo_id": os.path.basename(img_path), "embedding": reps[0]["embedding"]})
+                except:
+                    pass
+
+        for item in photo_db:
+            db_embedding = np.array(item["embedding"])
+            similarity = np.dot(query_embedding, db_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(db_embedding))
+            results.append({"photo_id": item["photo_id"], "score": float(similarity)})
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        top_k = [r for r in results[:3] if r["score"] > 0.5]
+
+        return {"matches": top_k, "count": len(top_k)}
+
+    except Exception as e:
+        return {"matches": [], "count": 0, "message": str(e)}
