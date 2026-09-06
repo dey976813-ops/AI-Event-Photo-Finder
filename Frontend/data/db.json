@@ -1,0 +1,86 @@
+{
+  "users": [
+    {
+      "id": "usr_demo_001",
+      "name": "Alex Mercer",
+      "email": "alex@photofinder.io",
+      "password": "$2b$10$KzI4kokH0PXxJpwoCyV0vuBVVRGf5JjGpD2KtvdYh3SDcUAsH1zP.",
+      "createdAt": "2026-08-29T12:30:10.847Z"
+    }
+  ],
+  "collections": [
+    {
+      "id": "col_paris_2026",
+      "ownerId": "usr_demo_001",
+      "name": "Paris Trip — 2026",
+      "accessCode": "PX7K-29QM",
+      "createdAt": "2026-09-02T12:30:10.849Z",
+      "status": "active"
+    }
+  ],
+  "media": [
+    {
+      "id": "med_001",
+      "collectionId": "col_paris_2026",
+      "type": "photo",
+      "url": "/uploads/demo/eiffel-summit.jpg",
+      "filename": "eiffel-summit.jpg",
+      "size": 39353,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_002",
+      "collectionId": "col_paris_2026",
+      "type": "photo",
+      "url": "/uploads/demo/departure-flight.jpg",
+      "filename": "departure-flight.jpg",
+      "size": 59079,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_003",
+      "collectionId": "col_paris_2026",
+      "type": "video",
+      "url": "/uploads/demo/paris-evening-stroll.mp4",
+      "filename": "paris-evening-stroll.mp4",
+      "size": 8376370,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_004",
+      "collectionId": "col_paris_2026",
+      "type": "photo",
+      "url": "/uploads/demo/above-the-clouds.jpg",
+      "filename": "above-the-clouds.jpg",
+      "size": 22810,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_005",
+      "collectionId": "col_paris_2026",
+      "type": "photo",
+      "url": "/uploads/demo/city-glow.jpg",
+      "filename": "city-glow.jpg",
+      "size": 28684,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_006",
+      "collectionId": "col_paris_2026",
+      "type": "photo",
+      "url": "/uploads/demo/tower-reveal.jpg",
+      "filename": "tower-reveal.jpg",
+      "size": 36038,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_007",
+      "collectionId": "col_paris_2026",
+      "type": "photo",
+      "url": "/uploads/demo/twilight-sky.jpg",
+      "filename": "twilight-sky.jpg",
+      "size": 32682,
+      "createdAt": "2026-09-05T12:30:10.849Z"
+    }
+  ]
+}
