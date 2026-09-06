@@ -1,0 +1,20 @@
+import json
+import math
+
+with open("Pasted code.json", "r") as f:
+    data = json.load(f)
+
+embedding = data["embedding"]
+
+print("Face found:", data["face_found"])
+print("Face count:", data["face_count"])
+print("Embedding dimension:", len(embedding))
+
+print(
+    "All values are numeric and finite:",
+    all(isinstance(x, (int, float)) and math.isfinite(x) for x in embedding)
+)
+
+print("Valid 512-d embedding:",
+      len(embedding) == 512 and
+      all(isinstance(x, (int, float)) and math.isfinite(x) for x in embedding))
