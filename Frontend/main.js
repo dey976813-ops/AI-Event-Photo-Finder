@@ -1,3 +1,25 @@
+// ==================== 0. SHARED OVERLAY / SCROLL LOCK ====================
+// Several independent surfaces can lock page scroll at once — the basic
+// modals (login/code/upload/success), the dashboard, the gallery, and the
+// separate "Find My Photos" flow below. Previously each one set
+// `document.body.style.overflow` directly, so closing any one of them wiped
+// out the lock even while another overlay was still open, and the page could
+// end up either permanently locked or scrollable behind a full-screen view.
+// This tracks every currently-open overlay by name and only restores
+// scrolling once none remain, so opens/closes can never step on each other.
+window.PFOverlayLock = (function () {
+  const openOverlays = new Set();
+  function apply() {
+    const locked = openOverlays.size > 0;
+    document.documentElement.style.overflow = locked ? 'hidden' : '';
+    document.body.style.overflow = locked ? 'hidden' : '';
+  }
+  return {
+    add(name) { openOverlays.add(name); apply(); },
+    remove(name) { openOverlays.delete(name); apply(); },
+  };
+})();
+
 (() => {
   // ==================== 1. CANVAS SCROLL SEQUENCE ====================
   const TOTAL_FRAMES = 300;
@@ -129,6 +151,23 @@
   preloadImages();
 
   // Initialize Lenis smooth scroll
+  //
+  // `smoothWheel: true` makes Lenis intercept wheel/trackpad input and drive
+  // the scroll position itself. That's the standard way Lenis works, but it
+  // means that if Lenis's own scroll math ever gets out of sync with the
+  // page (e.g. a resize or layout change while it's mid-animation), it can
+  // end up swallowing every wheel/trackpad event via preventDefault() without
+  // ever moving the page — while native browser scrollbar dragging keeps
+  // working because it never goes through Lenis's wheel listener at all.
+  // That exact split (scrollbar works, wheel/trackpad don't) is what was
+  // reported. Rather than risk breaking Lenis's own bundled code (not part
+  // of this frontend's editable files), we disable only the wheel/touch
+  // hijacking so the browser's native scrolling handles wheel, trackpad,
+  // touch and the scrollbar consistently. Lenis stays initialized purely for
+  // its `scrollTo()` easing (used by the brand "back to top" action) and the
+  // rest of the scroll-linked canvas/section animation system is untouched —
+  // it already reads scroll position from the native `scroll` event, not
+  // from Lenis.
   let lenis = null;
   if (typeof Lenis !== 'undefined') {
     lenis = new Lenis({
@@ -136,7 +175,7 @@
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
-      smoothWheel: true,
+      smoothWheel: false,
       wheelMultiplier: 1.0,
       smoothTouch: false,
       touchMultiplier: 1.5,
@@ -337,13 +376,13 @@
     authModal.classList.add('hidden');
     uploadModal.classList.add('hidden');
     successModal.classList.add('hidden');
-    document.body.style.overflow = '';
+    window.PFOverlayLock.remove('basicModal');
   }
 
   function openModal(modalEl) {
     closeAllModals();
     modalEl.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    window.PFOverlayLock.add('basicModal');
   }
 
   document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
@@ -666,12 +705,14 @@
 
   document.getElementById('dashboard-back-home-btn')?.addEventListener('click', () => {
     dashboardView.classList.add('hidden');
-    document.body.style.overflow = '';
+    window.PFOverlayLock.remove('dashboard');
   });
 
   navBrand?.addEventListener('click', () => {
     dashboardView.classList.add('hidden');
     galleryView.classList.add('hidden');
+    window.PFOverlayLock.remove('dashboard');
+    window.PFOverlayLock.remove('gallery');
     closeAllModals();
     if (lenis) {
       lenis.scrollTo(0);
@@ -836,7 +877,7 @@
       return;
     }
     dashboardView.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    window.PFOverlayLock.add('dashboard');
     await loadCollections();
   }
 
@@ -877,19 +918,20 @@
 
       const photosText = `${col.photosCount} photo${col.photosCount === 1 ? '' : 's'}`;
       const videosText = `${col.videosCount} video${col.videosCount === 1 ? '' : 's'}`;
+      const rawDate = col.date || col.createdAt || col.created_at || '';
+      const parsedDate = rawDate ? new Date(rawDate) : null;
+      const dateText = parsedDate && !isNaN(parsedDate) ? parsedDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : rawDate;
+      const statsLine = dateText ? `${photosText} · ${videosText} · ${dateText}` : `${photosText} · ${videosText}`;
 
+      // NOTE: the old access-code / "GET CODE" block that used to live here has been
+      // removed — it belonged to the legacy code-share flow and isn't part of the
+      // current Find My Photos MVP. `col.accessCode` is still used internally below
+      // to open the gallery view; it's just no longer shown as a user-facing feature.
       card.innerHTML = `
         ${coverHtml}
         <div class="card-content">
           <h3 class="card-title">${col.name}</h3>
-          <div class="card-stats">${photosText} · ${videosText}</div>
-          <div class="card-code-row">
-            <div>
-              <div class="code-badge-label">ACCESS CODE</div>
-              <div class="code-badge-value">${col.accessCode}</div>
-            </div>
-            <button class="secondary-button copy-btn" data-code="${col.accessCode}">COPY</button>
-          </div>
+          <div class="card-stats">${statsLine}</div>
           <div class="card-actions">
             <button class="primary-button view-btn" data-code="${col.accessCode}">VIEW</button>
             <button class="delete-col-btn" data-id="${col.id}" title="Delete collection">🗑</button>
@@ -898,12 +940,6 @@
       `;
 
       // Event handlers
-      card.querySelector('.copy-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(col.accessCode);
-        showToast(`Code copied: ${col.accessCode}`);
-      });
-
       card.querySelector('.view-btn').addEventListener('click', () => {
         handleCodeVerification(col.accessCode);
       });
@@ -1021,22 +1057,28 @@
 
     if (selectedFiles.length === 0) {
       selectedFilesContainer.classList.add('hidden');
+      if (uploadSubmitBtn) uploadSubmitBtn.disabled = true;
       return;
     }
 
     selectedFilesContainer.classList.remove('hidden');
     selectedCount.textContent = `${selectedFiles.length} file${selectedFiles.length === 1 ? '' : 's'} selected`;
+    if (uploadSubmitBtn) uploadSubmitBtn.disabled = false;
 
     selectedFiles.forEach((file, index) => {
       const card = document.createElement('div');
-      card.className = 'file-preview-card';
+      // NOTE: these class names must match the .file-preview-item / .file-thumb-box /
+      // .file-name-truncate rules in style.css — a prior mismatch here (file-preview-card /
+      // file-preview-thumb / file-preview-name) meant every preview card rendered completely
+      // unstyled, so newly added photos had no visible size or layout and appeared broken.
+      card.className = 'file-preview-item';
 
       const isVideo = file.type.startsWith('video/') || file.name.endsWith('.mov') || file.name.endsWith('.mp4') || file.name.endsWith('.webm');
       let thumbContent = isVideo ? '<span class="video-badge">▶</span>' : '';
 
       card.innerHTML = `
-        <div class="file-preview-thumb" id="thumb-${index}">${thumbContent}</div>
-        <div class="file-preview-name" title="${file.name}">${file.name}</div>
+        <div class="file-thumb-box" id="thumb-${index}">${thumbContent}</div>
+        <div class="file-name-truncate" title="${file.name}">${file.name}</div>
         <div class="file-preview-size">${formatBytes(file.size)}</div>
         <button type="button" class="file-remove-btn" data-index="${index}">×</button>
       `;
@@ -1187,12 +1229,12 @@
     }
 
     galleryView.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    window.PFOverlayLock.add('gallery');
   }
 
   document.getElementById('gallery-back-btn')?.addEventListener('click', () => {
     galleryView.classList.add('hidden');
-    document.body.style.overflow = '';
+    window.PFOverlayLock.remove('gallery');
   });
 
   document.getElementById('gallery-code-badge')?.addEventListener('click', () => {
@@ -1275,4 +1317,223 @@
     }
   });
 
+})();
+
+
+// ==================== FIND MY PHOTOS FLOW ====================
+(() => {
+  const modal = document.getElementById('find-photos-modal');
+  if (!modal) return;
+  const api = window.PhotoFinderApi;
+  const steps = {
+    event: document.getElementById('find-event-step'), upload: document.getElementById('find-upload-step'),
+    processing: document.getElementById('find-processing-step'), results: document.getElementById('find-results-step'), error: document.getElementById('find-error-step')
+  };
+  const progress = [...modal.querySelectorAll('.find-photos-progress span')];
+  const eventsList = document.getElementById('find-events-list');
+  const continueBtn = document.getElementById('find-event-continue');
+  const input = document.getElementById('face-photo-input');
+  const uploadZone = document.getElementById('face-upload-zone');
+  const faceSelectedContainer = document.getElementById('face-selected-container');
+  const facePreviewGrid = document.getElementById('face-preview-grid');
+  const faceSelectedCount = document.getElementById('face-selected-count');
+  const faceClearBtn = document.getElementById('face-clear-btn');
+  const faceAddMoreBtn = document.getElementById('face-add-more-btn');
+  const validation = document.getElementById('face-validation');
+  const scanBtn = document.getElementById('scan-photos-btn');
+  const status = document.getElementById('scan-status');
+  const statusDetail = document.getElementById('scan-status-detail');
+  const errorTitle = document.getElementById('find-error-title');
+  const errorMessage = document.getElementById('find-error-message');
+  const selected = { event: null, files: [], results: [] };
+  let scanAbortController;
+
+  function showStep(name) {
+    Object.entries(steps).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
+    const active = name === 'event' ? 0 : name === 'upload' ? 1 : name === 'processing' ? 2 : 3;
+    progress.forEach((bar, index) => bar.classList.toggle('active', index <= active));
+  }
+  function openFlow() {
+    modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false'); window.PFOverlayLock.add('findPhotos');
+    selected.event = null; selected.files = []; selected.results = []; continueBtn.disabled = true; resetUpload(); showStep('event'); loadEvents();
+  }
+  function closeFlow() { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); window.PFOverlayLock.remove('findPhotos'); scanAbortController?.abort(); }
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeFlow(); });
+  function setValidation(message) { validation.textContent = message || ''; validation.classList.toggle('hidden', !message); }
+  // Resets the whole face-photo selection: clears our own File[] state, re-renders
+  // the (now empty) preview grid, and clears the <input>'s value so a file the
+  // user removes can be re-selected later (browsers otherwise ignore re-selecting
+  // the same path without the value being cleared first).
+  function resetUpload() { selected.files = []; input.value = ''; renderFacePreviews(); setValidation(''); }
+  function normalizeEvents(payload) { return Array.isArray(payload) ? payload : (payload?.events || payload?.data || []); }
+  function loadEvents() {
+    eventsList.innerHTML = '<div class="find-state-message">Loading available events…</div>';
+    if (!api?.getEvents) { eventsList.innerHTML = '<div class="find-state-message">Event service is not configured yet.</div>'; return; }
+    api.getEvents().then(events => {
+      const list = normalizeEvents(events);
+      if (!list.length) { eventsList.innerHTML = '<div class="find-state-message">No events are available yet.</div>'; return; }
+      eventsList.innerHTML = list.map((event, index) => `<button type="button" class="find-event-option" data-event-id="${escapeHtml(event.id ?? event.eventId ?? '')}"><img class="find-event-thumb" src="${escapeHtml(event.thumbnailUrl ?? event.thumbnail ?? '')}" alt="" onerror="this.style.visibility='hidden'"><span class="find-event-copy"><strong>${escapeHtml(event.name ?? event.title ?? 'Untitled event')}</strong><small>${escapeHtml(event.date ?? event.eventDate ?? '')}</small></span><span class="find-event-check">${index === -1 ? '' : '○'}</span></button>`).join('');
+      eventsList.querySelectorAll('.find-event-option').forEach(button => button.addEventListener('click', () => {
+        eventsList.querySelectorAll('.find-event-option').forEach(item => item.classList.remove('selected'));
+        button.classList.add('selected'); button.querySelector('.find-event-check').textContent = '●'; selected.event = button.dataset.eventId; continueBtn.disabled = !selected.event;
+      }));
+    }).catch(() => { eventsList.innerHTML = '<div class="find-state-message">Unable to load events. Please try again when the backend is available.</div>'; });
+  }
+  function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char])); }
+  const VALID_FACE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_FACE_SIZE = 10 * 1024 * 1024;
+  function formatFaceBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024; const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+  // Adds newly chosen/dropped files to selected.files (does not replace the
+  // existing selection), skipping anything invalid and surfacing a single
+  // validation message for the batch. Re-selecting the browser's file input
+  // itself resets `input.value` right after this runs (see the change
+  // listener below), so a removed file can always be picked again.
+  function addFaceFiles(fileList) {
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+    let rejectionMessage = '';
+    incoming.forEach(file => {
+      if (!VALID_FACE_TYPES.includes(file.type)) { rejectionMessage = 'Please choose JPG, JPEG, PNG or WEBP images.'; return; }
+      if (file.size > MAX_FACE_SIZE) { rejectionMessage = 'One of your photos is over 10 MB. Please choose smaller files.'; return; }
+      selected.files.push(file);
+    });
+    setValidation(rejectionMessage);
+    renderFacePreviews();
+  }
+  function removeFaceFile(index) {
+    selected.files.splice(index, 1);
+    renderFacePreviews();
+  }
+  // Renders one thumbnail card per selected face photo, reusing the same
+  // file-preview-item / file-thumb-box / file-name-truncate / file-remove-btn
+  // classes as the event-photo uploader elsewhere on the site, so multi-photo
+  // selection looks and behaves consistently across the app.
+  function renderFacePreviews() {
+    facePreviewGrid.innerHTML = '';
+    if (!selected.files.length) {
+      faceSelectedContainer.classList.add('hidden');
+      scanBtn.disabled = true;
+      return;
+    }
+    faceSelectedContainer.classList.remove('hidden');
+    faceSelectedCount.textContent = `${selected.files.length} photo${selected.files.length === 1 ? '' : 's'} selected`;
+    scanBtn.disabled = false;
+    selected.files.forEach((file, index) => {
+      const card = document.createElement('div');
+      card.className = 'file-preview-item';
+      card.innerHTML = `
+        <div class="file-thumb-box" id="face-thumb-${index}"></div>
+        <div class="file-name-truncate" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+        <div class="file-preview-size">${formatFaceBytes(file.size)}</div>
+        <button type="button" class="file-remove-btn" data-index="${index}" aria-label="Remove ${escapeHtml(file.name)}">×</button>
+      `;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const thumbEl = card.querySelector(`#face-thumb-${index}`);
+        if (thumbEl) thumbEl.innerHTML = `<img src="${e.target.result}" alt="" />`;
+      };
+      reader.readAsDataURL(file);
+      card.querySelector('.file-remove-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFaceFile(index);
+      });
+      facePreviewGrid.appendChild(card);
+    });
+  }
+  function showError(title, message) { errorTitle.textContent = title; errorMessage.textContent = message; showStep('error'); }
+  function friendlyErrorMessage(error) {
+    if (error?.name === 'TypeError') return 'Connection failed. Please try again.';
+    const status = error?.status;
+    if (status === 503 || status === 502 || status === 504) return 'Photo search service is currently unavailable. Please try again.';
+    const lower = String(error?.message || '').toLowerCase();
+    if (lower.includes('face')) return "Couldn't detect a clear face. Please upload another photo.";
+    if (!status) return 'Connection failed. Please try again.';
+    return error?.message || 'Please try again.';
+  }
+  function normalizeResults(payload) { return payload?.photos || payload?.matches || payload?.results || payload?.data?.photos || []; }
+  function renderResults(payload) {
+    selected.results = normalizeResults(payload); const grid = document.getElementById('matched-photo-grid'); const empty = document.getElementById('find-results-empty');
+    grid.innerHTML = ''; document.getElementById('find-results-count').textContent = selected.results.length ? `${selected.results.length} memories matched to this search.` : '';
+    if (!selected.results.length) { empty.textContent = "We couldn't find your memories yet. Try uploading a clearer face photo or another photo."; empty.classList.remove('hidden'); document.getElementById('find-results-title').textContent = 'No matching photos found.'; } else { empty.classList.add('hidden'); document.getElementById('find-results-title').textContent = 'We found your photos.'; selected.results.forEach(item => { const url = item.url || item.imageUrl || item.photoUrl; if (!url) return; const button = document.createElement('button'); button.type = 'button'; button.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(item.filename || item.name || 'Matched event photo')}" loading="lazy">`; button.addEventListener('click', () => window.open(url, '_blank', 'noopener')); grid.appendChild(button); }); }
+    showStep('results');
+  }
+  function scan() {
+    if (!selected.event) return showError('SELECT AN EVENT', 'Choose an event before scanning.');
+    if (!selected.files.length) return showError('ADD A FACE PHOTO', 'Please upload at least one clear face photo before scanning.');
+    if (!api?.findMyPhotos) return showError('API NOT CONFIGURED', 'The photo matching service has not been configured yet.');
+    showStep('processing');
+    statusDetail.textContent = 'Your images stay attached to this search only.';
+    scanAbortController = new AbortController();
+    const total = selected.files.length;
+
+    // With a single selfie there's no per-photo counter to show, so keep the
+    // original cinematic rotating status line for that case. With multiple
+    // selfies, the real "Scanning photo X of N…" progress is more useful and
+    // replaces it.
+    let flavorTimer = null;
+    if (total > 1) {
+      status.textContent = `Scanning photo 1 of ${total}…`;
+    } else {
+      const flavorPhrases = ['Preparing your photo…', 'Detecting your face…', 'Creating your face signature…', 'Searching event memories…', 'Finding your moments…'];
+      let flavorIndex = 0;
+      status.textContent = flavorPhrases[0];
+      flavorTimer = setInterval(() => { flavorIndex = Math.min(flavorIndex + 1, flavorPhrases.length - 1); status.textContent = flavorPhrases[flavorIndex]; }, 1100);
+    }
+
+    // Merge matches from every selfie into one map, deduplicated by photo id
+    // (falling back to url/storage_path when no id is present) and keeping
+    // whichever pass returned the higher similarity score for that photo.
+    const mergedMatches = new Map();
+    function mergeMatches(list) {
+      (list || []).forEach(item => {
+        const urlKey = item.url || item.imageUrl || item.photoUrl || item.storage_path || item.storagePath || '';
+        const key = item.id != null ? `id:${item.id}` : (urlKey ? `url:${urlKey}` : null);
+        if (!key) return;
+        const similarity = typeof item.similarity === 'number' ? item.similarity : (typeof item.score === 'number' ? item.score : 0);
+        const existing = mergedMatches.get(key);
+        if (!existing) { mergedMatches.set(key, item); return; }
+        const existingSimilarity = typeof existing.similarity === 'number' ? existing.similarity : (typeof existing.score === 'number' ? existing.score : 0);
+        if (similarity > existingSimilarity) mergedMatches.set(key, item);
+      });
+    }
+
+    let succeededCount = 0;
+    let lastError = null;
+
+    async function runSequential() {
+      try {
+        for (let i = 0; i < total; i++) {
+          if (scanAbortController.signal.aborted) return;
+          if (total > 1) status.textContent = `Scanning photo ${i + 1} of ${total}…`;
+          try {
+            const payload = await api.findMyPhotos(selected.event, selected.files[i], scanAbortController.signal);
+            mergeMatches(normalizeResults(payload));
+            succeededCount++;
+          } catch (error) {
+            if (error.name === 'AbortError') return;
+            // Keep going — a single failed selfie shouldn't stop the rest from
+            // being searched. We only surface an error if NONE of them worked.
+            lastError = error;
+          }
+        }
+        if (scanAbortController.signal.aborted) return;
+        if (total > 1) status.textContent = 'Finding your memories…';
+        if (succeededCount === 0 && lastError) {
+          showError('WE COULDN’T COMPLETE THE SEARCH', friendlyErrorMessage(lastError));
+          return;
+        }
+        renderResults({ photos: [...mergedMatches.values()] });
+      } finally {
+        if (flavorTimer) clearInterval(flavorTimer);
+      }
+    }
+
+    runSequential();
+  }
+  document.getElementById('nav-find-photos-btn')?.addEventListener('click', openFlow); document.getElementById('climax-find-photos-btn')?.addEventListener('click', openFlow); document.getElementById('footer-find-photos-btn')?.addEventListener('click', e => { e.preventDefault(); openFlow(); }); document.getElementById('hero-find-photos-btn')?.addEventListener('click', openFlow); document.getElementById('find-photos-close')?.addEventListener('click', closeFlow); document.getElementById('find-results-close-btn')?.addEventListener('click', closeFlow); document.getElementById('find-event-continue')?.addEventListener('click', () => showStep('upload')); document.getElementById('face-back-btn')?.addEventListener('click', () => showStep('event')); document.getElementById('face-browse-btn')?.addEventListener('click', e => { e.stopPropagation(); input.click(); }); uploadZone?.addEventListener('click', () => input.click()); uploadZone?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); }); uploadZone?.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragging'); }); uploadZone?.addEventListener('dragleave', () => uploadZone.classList.remove('dragging')); uploadZone?.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dragging'); addFaceFiles(e.dataTransfer.files); }); input?.addEventListener('change', () => { addFaceFiles(input.files); input.value = ''; }); faceAddMoreBtn?.addEventListener('click', e => { e.stopPropagation(); input.click(); }); faceClearBtn?.addEventListener('click', () => { selected.files = []; input.value = ''; renderFacePreviews(); }); scanBtn?.addEventListener('click', scan); document.getElementById('find-again-btn')?.addEventListener('click', () => { resetUpload(); showStep('upload'); }); document.getElementById('find-retry-btn')?.addEventListener('click', scan); document.getElementById('find-error-back-btn')?.addEventListener('click', () => showStep(selected.event ? 'upload' : 'event')); modal.addEventListener('click', e => { if (e.target === modal) closeFlow(); });
 })();

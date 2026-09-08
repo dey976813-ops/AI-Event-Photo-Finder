@@ -6,6 +6,13 @@
       "email": "alex@photofinder.io",
       "password": "$2b$10$KzI4kokH0PXxJpwoCyV0vuBVVRGf5JjGpD2KtvdYh3SDcUAsH1zP.",
       "createdAt": "2026-08-29T12:30:10.847Z"
+    },
+    {
+      "id": "usr_38610b616dd73e14",
+      "name": "Subhajit Dey",
+      "email": "subhajitdey7680@gmail.com",
+      "password": "$2b$10$aIje2DU1yRruVIMjKYyBPel.YSjYvnKDKEg2j0l6k7Ir9zT.2kpRi",
+      "createdAt": "2026-09-08T03:32:22.787Z"
     }
   ],
   "collections": [
@@ -15,6 +22,22 @@
       "name": "Paris Trip — 2026",
       "accessCode": "PX7K-29QM",
       "createdAt": "2026-09-02T12:30:10.849Z",
+      "status": "active"
+    },
+    {
+      "id": "col_480fcbf235411c8c",
+      "ownerId": "usr_38610b616dd73e14",
+      "name": "Paris Trip — 2026",
+      "accessCode": "CBV6-8L7U",
+      "createdAt": "2026-09-08T04:03:59.587Z",
+      "status": "active"
+    },
+    {
+      "id": "col_fc885972d5e90770",
+      "ownerId": "usr_38610b616dd73e14",
+      "name": "Jyoti",
+      "accessCode": "FC47-KMRM",
+      "createdAt": "2026-09-08T04:11:36.850Z",
       "status": "active"
     }
   ],
@@ -81,6 +104,69 @@
       "filename": "twilight-sky.jpg",
       "size": 32682,
       "createdAt": "2026-09-05T12:30:10.849Z"
+    },
+    {
+      "id": "med_871caddfcb2d1a5b",
+      "collectionId": "col_480fcbf235411c8c",
+      "type": "photo",
+      "url": "/uploads/1788840239543_f27894563781.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.03.49 AM.jpeg",
+      "size": 111251,
+      "createdAt": "2026-09-08T04:03:59.592Z"
+    },
+    {
+      "id": "med_ad48a7d490a0a1d7",
+      "collectionId": "col_480fcbf235411c8c",
+      "type": "photo",
+      "url": "/uploads/1788840239546_6e97d9351f1f.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.03.52 AM.jpeg",
+      "size": 393563,
+      "createdAt": "2026-09-08T04:03:59.592Z"
+    },
+    {
+      "id": "med_9bfa1dc4a5509c1c",
+      "collectionId": "col_480fcbf235411c8c",
+      "type": "photo",
+      "url": "/uploads/1788840239563_371dc468ab2c.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.03.58 AM.jpeg",
+      "size": 126912,
+      "createdAt": "2026-09-08T04:03:59.592Z"
+    },
+    {
+      "id": "med_04ab40145943c725",
+      "collectionId": "col_480fcbf235411c8c",
+      "type": "photo",
+      "url": "/uploads/1788840239568_d233f5f70ce0.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.04.10 AM (1).jpeg",
+      "size": 213123,
+      "createdAt": "2026-09-08T04:03:59.592Z"
+    },
+    {
+      "id": "med_813b72fe3d077cf4",
+      "collectionId": "col_480fcbf235411c8c",
+      "type": "photo",
+      "url": "/uploads/1788840239570_a0e6217499c2.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.04.10 AM.jpeg",
+      "size": 136234,
+      "createdAt": "2026-09-08T04:03:59.592Z"
+    },
+    {
+      "id": "med_c8c0a396e9850f7d",
+      "collectionId": "col_480fcbf235411c8c",
+      "type": "photo",
+      "url": "/uploads/1788840239571_1326833e7a42.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.04.11 AM.jpeg",
+      "size": 138959,
+      "createdAt": "2026-09-08T04:03:59.592Z"
+    },
+    {
+      "id": "med_7e06ec4bd91e98fb",
+      "collectionId": "col_fc885972d5e90770",
+      "type": "photo",
+      "url": "/uploads/1788840696844_56773032cb1b.jpeg",
+      "filename": "WhatsApp Image 2026-09-08 at 9.04.08 AM.jpeg",
+      "size": 96184,
+      "createdAt": "2026-09-08T04:11:36.858Z"
     }
   ]
 }
