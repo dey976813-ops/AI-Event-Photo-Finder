@@ -8,6 +8,7 @@ const supabase = require("./services/supabaseService");
 
 const photoRoutes = require("./routes/photos");
 const matchRoutes = require("./routes/match");
+const authRoutes = require("./routes/auth");
 
 const app = express();
 
@@ -218,6 +219,10 @@ app.use("/photos", photoRoutes);
 // AI Face Matching
 // POST /api/match
 app.use("/api/match", matchRoutes);
+
+// Authentication
+// POST /api/auth/signup, POST /api/auth/login, GET /api/auth/me
+app.use("/api/auth", authRoutes);
 
 // =========================
 // 404 Handler
