@@ -17,20 +17,38 @@ const uploadPhoto = async (req, res, next) => {
         // Check that the event actually exists
         const { data: event, error: eventError } = await supabase
             .from("events")
-            .select("id")
+            .select("id, owner_id")
             .eq("id", event_id)
-            .single();
+            .maybeSingle();
 
-        if (eventError || !event) {
-            return res.status(400).json({
+        if (eventError) {
+            console.error("Event lookup error:", eventError);
+
+            return res.status(500).json({
                 success: false,
-                message: "Invalid event_id"
+                message: "Could not verify event"
+            });
+        }
+
+        if (!event) {
+            return res.status(404).json({
+                success: false,
+                message: "Event not found"
+            });
+        }
+
+        // Only the event owner can upload photos.
+        // Users who only have event_access cannot upload.
+        if (event.owner_id !== req.user.id) {
+            return res.status(403).json({
+                success: false,
+                message: "Only the event owner can upload photos"
             });
         }
 
         // Generate a unique filename
         const extension = path.extname(req.file.originalname);
-        const fileName = `${crypto.randomUUID()}${extension}`;
+        const fileName = `${crypto.randomUUID()}${extension} `;
 
         // Storage path
         const filePath = `${event_id}/${fileName}`;
@@ -90,6 +108,7 @@ const uploadPhoto = async (req, res, next) => {
             face_count: aiResult.face_count,
             embedding_length: aiResult.embedding?.length
         });
+
         const { error: embeddingError } = await supabase
             .from("photos")
             .update({
@@ -106,6 +125,7 @@ const uploadPhoto = async (req, res, next) => {
                 error: embeddingError.message
             });
         }
+
         return res.status(201).json({
             success: true,
             message: "Photo uploaded successfully",

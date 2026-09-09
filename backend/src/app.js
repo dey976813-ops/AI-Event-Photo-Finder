@@ -9,6 +9,7 @@ const supabase = require("./services/supabaseService");
 const photoRoutes = require("./routes/photos");
 const matchRoutes = require("./routes/match");
 const authRoutes = require("./routes/auth");
+const eventsRoutes = require("./routes/events");
 
 const app = express();
 
@@ -33,38 +34,7 @@ app.get("/health", (req, res) => {
 // Get Events
 // Frontend uses this to show event selection
 // =========================
-app.get("/api/events", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("events")
-      .select("id, name, created_at, date")
-      .order("date", { ascending: false });
-
-    if (error) {
-      console.error("Events fetch error:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Could not retrieve events",
-        error: error.message,
-      });
-    }
-
-    return res.json({
-      success: true,
-      events: data || [],
-    });
-  } catch (error) {
-    console.error("Events API error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve events",
-      error: error.message,
-    });
-  }
-});
-
+app.use("/api/events", eventsRoutes);
 // =========================
 // Supabase Test
 // =========================

@@ -13,6 +13,13 @@
       "email": "subhajitdey7680@gmail.com",
       "password": "$2b$10$aIje2DU1yRruVIMjKYyBPel.YSjYvnKDKEg2j0l6k7Ir9zT.2kpRi",
       "createdAt": "2026-09-08T03:32:22.787Z"
+    },
+    {
+      "id": "usr_3e3ce463aa4fa3bb",
+      "name": "PRATIK MURMU",
+      "email": "pratik251001271083@technoindiaeducation.com",
+      "password": "$2b$10$30O5DRnjcoeV7pfCZCX.v.t5I98/JhH5jmy0kiD3y5wSYhqBM2SqK",
+      "createdAt": "2026-09-09T08:11:59.988Z"
     }
   ],
   "collections": [
