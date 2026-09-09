@@ -20,6 +20,27 @@
       "email": "pratik251001271083@technoindiaeducation.com",
       "password": "$2b$10$30O5DRnjcoeV7pfCZCX.v.t5I98/JhH5jmy0kiD3y5wSYhqBM2SqK",
       "createdAt": "2026-09-09T08:11:59.988Z"
+    },
+    {
+      "id": "usr_ba90f7a627447ccc",
+      "name": "Subhajit Dey",
+      "email": "dey976813@gmail.com",
+      "password": "$2b$10$y0GSvt5PykoEx1Bl3nwvJuhK4VBx0v9wixJgbp68/.gtCsaHfFuFW",
+      "createdAt": "2026-09-09T08:30:22.400Z"
+    },
+    {
+      "id": "usr_b4aebbf7e0360701",
+      "name": "SUBHAJIT DEY_1074",
+      "email": "subhajit251001271074@technoindiaeducation.com",
+      "password": "$2b$10$K2foIaMdx8jAH5Os9f8XeOcTrbgPswiVEL9RtgwJI5u9HFN7/syDS",
+      "createdAt": "2026-09-09T08:50:23.528Z"
+    },
+    {
+      "id": "usr_cecd98ca0be11cb7",
+      "name": "SUBHAJIT DEY_1074",
+      "email": "sahoodebajyoti333@gmail.com",
+      "password": "$2b$10$qWxgbVgkRBTsEKl/GRrpMegAjRjfgi.gb7VeqsMBzM7WKVMACwz62",
+      "createdAt": "2026-09-09T08:54:54.190Z"
     }
   ],
   "collections": [
