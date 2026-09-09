@@ -9,6 +9,19 @@
     return `${API_BASE_URL}${path}`;
   }
 
+  function getAuthToken() {
+    return localStorage.getItem("pf_token");
+  }
+
+  function getAuthHeaders(extra = {}) {
+    const token = getAuthToken();
+
+    return {
+      ...extra,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  }
+
   async function parseApiResponse(response) {
     const contentType = response.headers.get("content-type") || "";
 
@@ -42,49 +55,87 @@
     return payload;
   }
 
-  // ==========================================
-  // Backend Health
-  // GET http://localhost:5000/health
-  // ==========================================
   async function healthCheck(signal) {
-    return parseApiResponse(
-      await fetch(apiUrl("/health"), {
-        method: "GET",
-        signal,
-      }),
-    );
+    const response = await fetch(apiUrl("/health"), {
+      method: "GET",
+      signal,
+    });
+
+    return parseApiResponse(response);
   }
 
-  // ==========================================
-  // Get Events
-  //
-  // NOTE:
-  // Current backend does not expose /api/events.
-  // Keep this function for future event API.
-  //
-  // `cache: "no-store"` ensures Find My Photos always sees a freshly created
-  // event immediately (no stale browser/HTTP cache of the events list).
-  // ==========================================
   async function getEvents(signal) {
-    return parseApiResponse(
-      await fetch(apiUrl("/api/events"), {
-        method: "GET",
-        cache: "no-store",
-        signal,
-      }),
-    );
+    const response = await fetch(apiUrl("/api/events"), {
+      method: "GET",
+      headers: getAuthHeaders(),
+      cache: "no-store",
+      signal,
+    });
+
+    return parseApiResponse(response);
   }
 
-  // ==========================================
-  // FIND MY PHOTOS
-  //
-  // Backend:
-  // POST /api/match
-  //
-  // multipart/form-data:
-  // file
-  // event_id
-  // ==========================================
+  async function createEvent(name, date = null, signal) {
+    if (!name || typeof name !== "string" || !name.trim()) {
+      throw new Error("Event name is required.");
+    }
+
+    const body = {
+      name: name.trim(),
+    };
+
+    if (date) {
+      body.date = date;
+    }
+
+    const response = await fetch(apiUrl("/api/events"), {
+      method: "POST",
+      headers: getAuthHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    return parseApiResponse(response);
+  }
+
+  async function generateAccessCode(eventId, signal) {
+    if (!eventId) {
+      throw new Error("Event ID is required.");
+    }
+
+    const response = await fetch(
+      apiUrl(`/api/events/${encodeURIComponent(eventId)}/access-code`),
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+        signal,
+      },
+    );
+
+    return parseApiResponse(response);
+  }
+
+  async function redeemAccessCode(accessCode, signal) {
+    if (!accessCode || typeof accessCode !== "string") {
+      throw new Error("Access code is required.");
+    }
+
+    const response = await fetch(apiUrl("/api/events/access-code/redeem"), {
+      method: "POST",
+      headers: getAuthHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        access_code: accessCode.trim().toUpperCase(),
+      }),
+      signal,
+    });
+
+    return parseApiResponse(response);
+  }
+
   async function findMyPhotos(eventId, faceImage, signal) {
     if (!eventId) {
       throw new Error("Event ID is required.");
@@ -96,69 +147,96 @@
 
     const formData = new FormData();
 
-    // IMPORTANT:
-    // Backend expects "file", NOT "faceImage"
     formData.append("file", faceImage, faceImage.name || "selfie.jpg");
 
-    // IMPORTANT:
-    // Backend expects "event_id", NOT "eventId"
     formData.append("event_id", eventId);
 
     const response = await fetch(apiUrl("/api/match"), {
       method: "POST",
+      headers: getAuthHeaders(),
       body: formData,
       signal,
     });
 
     const payload = await parseApiResponse(response);
 
-    // Normalize backend response so frontend can easily consume it.
     return {
       ...payload,
       photos: payload.photos || payload.matches || payload.results || [],
     };
   }
 
-  // ==========================================
-  // Photographer Flow
-  // ==========================================
-  async function uploadEventPhotos(eventId, files, signal) {
-    const formData = new FormData();
+  async function uploadEventPhotos(eventId, files, signal, onProgress) {
+    if (!eventId) {
+      throw new Error("Event ID is required.");
+    }
 
-    formData.append("eventId", eventId);
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new Error("Please select at least one image.");
+    }
 
-    files.forEach((file) => {
-      formData.append("files", file, file.name);
-    });
+    const results = [];
 
-    return parseApiResponse(
-      await fetch(apiUrl("/api/event-photos"), {
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+
+      if (!file) {
+        continue;
+      }
+
+      const formData = new FormData();
+
+      formData.append("file", file, file.name || "photo.jpg");
+      formData.append("event_id", eventId);
+
+      const response = await fetch(apiUrl("/photos"), {
         method: "POST",
+        headers: getAuthHeaders(),
         body: formData,
         signal,
-      }),
-    );
+      });
+
+      const payload = await parseApiResponse(response);
+
+      results.push(payload);
+
+      if (typeof onProgress === "function") {
+        onProgress(index + 1, files.length, payload);
+      }
+    }
+
+    return {
+      success: true,
+      uploaded: results.length,
+      results,
+    };
   }
 
-  // ==========================================
-  // Photographer Flow
-  // ==========================================
   async function getEventPhotos(eventId, signal) {
-    return parseApiResponse(
-      await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/photos`), {
+    if (!eventId) {
+      throw new Error("Event ID is required.");
+    }
+
+    const response = await fetch(
+      apiUrl(`/api/events/${encodeURIComponent(eventId)}/photos`),
+      {
         method: "GET",
+        headers: getAuthHeaders(),
+        cache: "no-store",
         signal,
-      }),
+      },
     );
+
+    return parseApiResponse(response);
   }
 
-  // ==========================================
-  // Export
-  // ==========================================
   window.PhotoFinderApi = {
     API_BASE_URL,
     healthCheck,
     getEvents,
+    createEvent,
+    generateAccessCode,
+    redeemAccessCode,
     findMyPhotos,
     uploadEventPhotos,
     getEventPhotos,

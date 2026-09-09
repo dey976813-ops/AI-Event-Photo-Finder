@@ -1,13 +1,23 @@
 const express = require("express");
+const { createClient } = require("@supabase/supabase-js");
 
 const supabase = require("../services/supabaseService");
 const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-// Shapes a Supabase Auth user object into the { id, name, email } shape the
-// existing frontend (main.js) already reads (currentUser.name, etc.). Never
-// exposes anything else from the Supabase user record.
+const supabaseAuth = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  },
+);
+
 function toPublicUser(user) {
   return {
     id: user.id,
@@ -18,18 +28,6 @@ function toPublicUser(user) {
   };
 }
 
-// =========================
-// POST /api/auth/signup
-//
-// Body: { name, email, password, confirmPassword }
-// Response: { success: true, token, user: { id, name, email } }
-//
-// Users are created directly in Supabase Auth (auth.users) via the admin
-// API, which is available here because supabaseService.js is initialized
-// with the service-role key. This makes auth.users.id the single, canonical
-// user id everywhere else in the app -- in particular the id Phase 2 will
-// write into events.owner_id.
-// =========================
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password, confirmPassword } = req.body || {};
@@ -48,36 +46,34 @@ router.post("/signup", async (req, res) => {
       });
     }
 
-    // email_confirm: true auto-confirms the account. This backend has no
-    // email delivery configured, so requiring email verification would
-    // leave every new signup permanently unable to log in.
     const { data: created, error: createError } =
       await supabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: { name },
+        user_metadata: {
+          name,
+        },
       });
 
     if (createError || !created?.user) {
       console.error("Signup error:", createError);
+
       return res.status(400).json({
         success: false,
         error: createError?.message || "Could not create account",
       });
     }
 
-    // admin.createUser does not return a session, so sign in immediately to
-    // hand the frontend a real, usable access token -- matching what
-    // login below returns, and what main.js expects as `data.token`.
     const { data: signInData, error: signInError } =
-      await supabase.auth.signInWithPassword({
+      await supabaseAuth.auth.signInWithPassword({
         email,
         password,
       });
 
-    if (signInError || !signInData?.session) {
+    if (signInError || !signInData?.session || !signInData?.user) {
       console.error("Post-signup sign-in error:", signInError);
+
       return res.status(500).json({
         success: false,
         error: "Account created, but automatic sign-in failed. Please log in.",
@@ -91,6 +87,7 @@ router.post("/signup", async (req, res) => {
     });
   } catch (error) {
     console.error("Signup API error:", error);
+
     return res.status(500).json({
       success: false,
       error: "Failed to create account",
@@ -98,12 +95,6 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-// =========================
-// POST /api/auth/login
-//
-// Body: { email, password }
-// Response: { success: true, token, user: { id, name, email } }
-// =========================
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body || {};
@@ -115,13 +106,12 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error || !data?.session) {
-      // Deliberately generic -- don't reveal whether the email exists.
+    if (error || !data?.session || !data?.user) {
       return res.status(401).json({
         success: false,
         error: "Invalid email or password",
@@ -135,6 +125,7 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Login API error:", error);
+
     return res.status(500).json({
       success: false,
       error: "Login failed",
@@ -142,15 +133,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// =========================
-// GET /api/auth/me
-//
-// Header: Authorization: Bearer <token>
-// Response: { success: true, user: { id, name, email } }
-//
-// requireAuth is the single place the token is verified against Supabase
-// Auth; this handler just reports back what it found.
-// =========================
 router.get("/me", requireAuth, async (req, res) => {
   return res.json({
     success: true,

@@ -610,8 +610,7 @@
         <p class="eyebrow">HAVE A CODE?</p>
         <h2>ENTER YOUR ACCESS CODE</h2>
         <p class="modal-subtext">
-          The viewer does not need an account. Enter your collection code to
-          view.
+          Login to your account and enter the event code to get secure access.
         </p>
 
         <form id="modal-code-form">
@@ -857,16 +856,14 @@
             type="file"
             id="file-input"
             multiple
-            accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+            accept="image/jpeg,image/png,image/webp"
             hidden
           />
           <div class="drop-zone-content">
             <div class="drop-icon">☁️</div>
-            <h3>DROP PHOTOS & VIDEOS HERE</h3>
+            <h3>DROP EVENT PHOTOS HERE</h3>
             <p>or choose files from your device</p>
-            <span class="drop-formats"
-              >Supports JPG, PNG, WEBP, MP4, MOV, WEBM</span
-            >
+            <span class="drop-formats">Supports JPG, PNG, WEBP</span>
             <button
               type="button"
               class="secondary-button"
@@ -1048,14 +1045,49 @@
           <div class="find-events" id="find-events-list" aria-live="polite">
             <div class="find-state-message">Loading available events…</div>
           </div>
+
           <div class="find-step-actions">
             <button
               class="primary-button full"
               id="find-event-continue"
               disabled
+              type="button"
             >
               CONTINUE <span>→</span>
             </button>
+          </div>
+
+          <div class="find-access-divider">
+            <span>OR</span>
+          </div>
+
+          <div class="find-access-code">
+            <p class="eyebrow">HAVE AN EVENT CODE?</p>
+
+            <div class="input-wrapper large">
+              <input
+                type="text"
+                id="find-access-code-input"
+                placeholder="Enter event access code"
+                maxlength="9"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+
+            <button
+              type="button"
+              class="secondary-button full"
+              id="find-access-code-btn"
+            >
+              GET EVENT ACCESS <span>→</span>
+            </button>
+
+            <div
+              class="find-validation hidden"
+              id="find-access-code-message"
+              role="alert"
+            ></div>
           </div>
         </section>
         <section class="find-step hidden" id="find-upload-step">
