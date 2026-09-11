@@ -301,7 +301,7 @@
                   type="text"
                   id="inline-code-input"
                   placeholder="Enter access code"
-                  maxlength="9"
+                  maxlength="12"
                   autocomplete="off"
                   spellcheck="false"
                 />
@@ -619,7 +619,7 @@
               type="text"
               id="modal-code-input"
               placeholder="Enter code"
-              maxlength="9"
+              maxlength="12"
               autocomplete="off"
               spellcheck="false"
             />
@@ -974,7 +974,24 @@
       </div>
     </div>
 
-    <!-- 7. Media Lightbox & Custom Video Player -->
+    <!-- 7. Delete Collection Confirmation -->
+    <div class="modal-backdrop hidden" id="delete-event-modal" aria-hidden="true">
+      <div class="modal-card delete-event-modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-event-title">
+        <button class="modal-close" id="delete-event-close" aria-label="Close">×</button>
+        <p class="eyebrow">PERMANENT ACTION</p>
+        <h2 id="delete-event-title">DELETE COLLECTION?</h2>
+        <p class="modal-subtext">
+          <strong id="delete-event-name">This collection</strong>, its uploaded media,
+          face embeddings, and shared access will be permanently removed.
+        </p>
+        <div class="modal-actions delete-event-actions">
+          <button type="button" class="secondary-button" id="delete-event-cancel-btn">KEEP COLLECTION</button>
+          <button type="button" class="danger-button" id="delete-event-confirm-btn">DELETE PERMANENTLY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Media Lightbox & Custom Video Player -->
     <div class="lightbox-backdrop hidden" id="lightbox">
       <div class="lightbox-toolbar">
         <span class="lightbox-counter" id="lightbox-counter">1 / 10</span>
@@ -1069,7 +1086,7 @@
                 type="text"
                 id="find-access-code-input"
                 placeholder="Enter event access code"
-                maxlength="9"
+                maxlength="12"
                 autocomplete="off"
                 spellcheck="false"
               />

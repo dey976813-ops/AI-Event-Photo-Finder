@@ -26,6 +26,74 @@ window.PFOverlayLock = (function () {
   };
 })();
 
+// ==================== 0b. SHARED HTML / THUMBNAIL UTILITIES ====================
+// Used by both the Auth/Dashboard/Gallery IIFE and the separate "Find My
+// Photos" IIFE below, so these are declared once here instead of being
+// duplicated inside each closure. Declared as `function`/`const` at the top
+// of the script (before either IIFE runs) so both closures can see them.
+function escapeHtml(value) {
+  return String(value ?? "").replace(
+    /[&<>'"]/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      })[char],
+  );
+}
+
+// A small inline camera-icon placeholder shown whenever an event has no
+// usable cover image, or whenever a real cover image URL fails to load.
+// This is a self-contained data URI — not a fetched or invented external
+// image URL — so it can never itself produce a broken-image icon and never
+// triggers a network request.
+const EVENT_THUMB_FALLBACK =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+      '<rect width="64" height="64" rx="10" fill="#1c1c1c"/>' +
+      '<path d="M20 24h5l2-4h10l2 4h5a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V26a2 2 0 0 1 2-2z" fill="none" stroke="#666" stroke-width="2"/>' +
+      '<circle cx="32" cy="34" r="6" fill="none" stroke="#666" stroke-width="2"/>' +
+      "</svg>",
+  );
+
+// Reads any of the common cover-image field names a backend event record
+// might use. Returns null (never a fabricated URL) when none is present, so
+// callers know to fall back to EVENT_THUMB_FALLBACK instead of leaving
+// `src` empty or pointing somewhere invalid.
+function getEventThumbUrl(event) {
+  const url =
+    event?.thumbnail ??
+    event?.thumbnailUrl ??
+    event?.thumbnail_url ??
+    event?.coverUrl ??
+    event?.cover_url ??
+    event?.coverImage ??
+    event?.cover_image ??
+    event?.imageUrl ??
+    event?.image_url ??
+    null;
+
+  return typeof url === "string" && url.trim() ? url : null;
+}
+
+function formatEventAccessCode(value) {
+  const raw = String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 10);
+
+  // Existing demo codes use 4-4. Current event codes use 2-4-4.
+  if (raw.length <= 8) {
+    return raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4, 8)}` : raw;
+  }
+
+  return `${raw.slice(0, 2)}-${raw.slice(2, 6)}-${raw.slice(6, 10)}`;
+}
+
 (() => {
   // ==================== 1. CANVAS SCROLL SEQUENCE ====================
   const TOTAL_FRAMES = 300;
@@ -309,8 +377,22 @@ window.PFOverlayLock = (function () {
   requestAnimationFrame(tick);
 
   // ==================== 2. AUTH & STATE MANAGEMENT ====================
+  // api.js already exports API_BASE_URL for exactly this reason: direct
+  // fetch() calls in this file (login, signup, the /api/auth/me check) must
+  // agree with whatever origin api.js itself is calling, or a request can
+  // silently land on the wrong port (e.g. this frontend's own :3000 dev
+  // server instead of the :5000 backend) and come back as an unexpected
+  // 404/401. Reuse it here instead of hard-coding a second, possibly
+  // inconsistent URL.
+  const API_ORIGIN =
+    (window.PhotoFinderApi && window.PhotoFinderApi.API_BASE_URL) ||
+    "http://localhost:5000";
+
   let currentUser = null;
   let authToken = localStorage.getItem("pf_token") || null;
+  const eventMediaCache = new Map();
+  const eventMediaRequests = new Map();
+  const knownAccessCodes = new Map();
 
   const navAuthBtn = document.getElementById("nav-auth-btn");
   const navDashboardBtn = document.getElementById("nav-dashboard-btn");
@@ -332,19 +414,61 @@ window.PFOverlayLock = (function () {
     }
   }
 
+  // ROOT CAUSE OF THE LOGIN BUG: `logout` was referenced in several places
+  // below (the nav/dashboard logout buttons, and the 401 handlers inside
+  // loadCollections() and the upload submit handler) but was never defined
+  // anywhere in this file. `navLogoutBtn?.addEventListener("click", logout)`
+  // runs synchronously the moment this script executes, and referencing the
+  // undefined `logout` identifier there throws a ReferenceError immediately
+  // on page load — before Section 7 (the real login/signup submit handlers)
+  // ever gets a chance to run. With those listeners never attached, submitting
+  // the login form fell back to a native, non-JS form submission: the POST
+  // request itself could still reach the backend and "succeed" (visible as a
+  // 200 in the Network tab), but no JS ever read the response, stored the
+  // token, or updated app state, so the page ended up back on its default
+  // logged-out UI immediately after. Defining `logout` here removes the
+  // crash and gives every one of its call sites a real implementation.
+  function logout() {
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem("pf_token");
+    eventMediaCache.clear();
+    eventMediaRequests.clear();
+    knownAccessCodes.clear();
+
+    closeAllModals();
+    dashboardView.classList.add("hidden");
+    galleryView.classList.add("hidden");
+    window.PFOverlayLock.remove("dashboard");
+    window.PFOverlayLock.remove("gallery");
+
+    updateAuthUI();
+    showToast("Logged out successfully");
+  }
+
   async function checkAuthStatus() {
     if (!authToken) {
       updateAuthUI();
       return;
     }
+
     try {
-      const res = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${authToken}` },
+      const res = await fetch(`${API_ORIGIN}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       });
+
       if (res.ok) {
         const data = await res.json();
         currentUser = data.user;
       } else {
+        console.warn("Auth check failed:", res.status);
+        // Previously the rejected token was left in localStorage forever,
+        // so every future page load repeated this same failed check
+        // against a token the backend had already rejected. Clear it so
+        // the UI correctly settles into a logged-out state.
         authToken = null;
         currentUser = null;
         localStorage.removeItem("pf_token");
@@ -352,21 +476,11 @@ window.PFOverlayLock = (function () {
     } catch (e) {
       console.warn("Auth check error:", e);
     }
+
     updateAuthUI();
   }
 
   checkAuthStatus();
-
-  function logout() {
-    authToken = null;
-    currentUser = null;
-    localStorage.removeItem("pf_token");
-    updateAuthUI();
-    closeAllModals();
-    document.getElementById("dashboard-view").classList.add("hidden");
-    showToast("Logged out successfully");
-  }
-
   // ==================== 3. TOAST NOTIFICATIONS ====================
   const toastContainer = document.getElementById("toast-container");
   function showToast(message, duration = 3000) {
@@ -383,24 +497,56 @@ window.PFOverlayLock = (function () {
     }, duration);
   }
 
+  async function copyText(text) {
+    if (!text || text === "Code unavailable") {
+      showToast("This access code is unavailable in this session.");
+      return false;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("Copy failed");
+      }
+      return true;
+    } catch (error) {
+      console.warn("Clipboard copy failed:", error);
+      showToast("Could not copy the access code.");
+      return false;
+    }
+  }
+
   // ==================== 4. MODAL MANAGEMENT ====================
   const codeModal = document.getElementById("code-modal");
   const authModal = document.getElementById("auth-modal");
   const uploadModal = document.getElementById("upload-modal");
   const successModal = document.getElementById("success-modal");
+  const deleteEventModal = document.getElementById("delete-event-modal");
   const dashboardView = document.getElementById("dashboard-view");
   const galleryView = document.getElementById("gallery-view");
   const lightbox = document.getElementById("lightbox");
 
   function closeAllModals() {
-    codeModal.classList.add("hidden");
-    authModal.classList.add("hidden");
-    uploadModal.classList.add("hidden");
-    successModal.classList.add("hidden");
+    codeModal?.classList.add("hidden");
+    authModal?.classList.add("hidden");
+    uploadModal?.classList.add("hidden");
+    successModal?.classList.add("hidden");
+    deleteEventModal?.classList.add("hidden");
     window.PFOverlayLock.remove("basicModal");
   }
 
   function openModal(modalEl) {
+    if (!modalEl) return;
     closeAllModals();
     modalEl.classList.remove("hidden");
     window.PFOverlayLock.add("basicModal");
@@ -439,11 +585,15 @@ window.PFOverlayLock = (function () {
   // ==================== 5. CODE FORMATTING & VERIFICATION ====================
   function formatAccessCode(inputEl) {
     inputEl.addEventListener("input", (e) => {
-      let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-      if (val.length > 4) {
-        val = `${val.slice(0, 4)}-${val.slice(4, 8)}`;
-      }
-      e.target.value = val;
+      e.target.value = formatEventAccessCode(e.target.value);
+    });
+
+    inputEl.addEventListener("paste", (e) => {
+      const pastedText = e.clipboardData?.getData("text");
+      if (typeof pastedText !== "string") return;
+      e.preventDefault();
+      inputEl.value = formatEventAccessCode(pastedText);
+      inputEl.dispatchEvent(new Event("input", { bubbles: true }));
     });
   }
 
@@ -480,6 +630,8 @@ window.PFOverlayLock = (function () {
       if (!data?.event?.id) {
         throw new Error("No event was returned.");
       }
+
+      knownAccessCodes.set(data.event.id, code.trim().toUpperCase());
 
       closeAllModals();
       await loadCollections();
@@ -674,51 +826,7 @@ window.PFOverlayLock = (function () {
   });
 
   // ==================== 6. NAVIGATION ACTIONS ====================
-  document
-    .getElementById("nav-enter-code-btn")
-    ?.addEventListener("click", () => {
-      document.getElementById("code-feedback")?.classList.add("hidden");
-      if (modalCodeInput) modalCodeInput.value = "";
-      openModal(codeModal);
-      setTimeout(() => modalCodeInput?.focus(), 150);
-    });
-
-  document
-    .getElementById("hero-enter-code-btn")
-    ?.addEventListener("click", () => {
-      document.getElementById("code-feedback")?.classList.add("hidden");
-      if (modalCodeInput) modalCodeInput.value = "";
-      openModal(codeModal);
-      setTimeout(() => modalCodeInput?.focus(), 150);
-    });
-
-  document.getElementById("climax-code-btn")?.addEventListener("click", () => {
-    document.getElementById("code-feedback")?.classList.add("hidden");
-    if (modalCodeInput) modalCodeInput.value = "";
-    openModal(codeModal);
-    setTimeout(() => modalCodeInput?.focus(), 150);
-  });
-
-  document
-    .getElementById("footer-code-link")
-    ?.addEventListener("click", (e) => {
-      e.preventDefault();
-      document.getElementById("code-feedback")?.classList.add("hidden");
-      if (modalCodeInput) modalCodeInput.value = "";
-      openModal(codeModal);
-      setTimeout(() => modalCodeInput?.focus(), 150);
-    });
-
   document.getElementById("hero-upload-btn")?.addEventListener("click", () => {
-    if (authToken && currentUser) {
-      openDashboard();
-      openCreateModal();
-    } else {
-      openModal(authModal);
-    }
-  });
-
-  document.getElementById("how-upload-cta")?.addEventListener("click", () => {
     if (authToken && currentUser) {
       openDashboard();
       openCreateModal();
@@ -853,13 +961,16 @@ window.PFOverlayLock = (function () {
       submitBtn.textContent = "LOGGING IN...";
 
       try {
-        const res = await fetch("/api/auth/login", {
+        const res = await fetch(`${API_ORIGIN}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
         const data = await res.json();
         if (res.ok) {
+          eventMediaCache.clear();
+          eventMediaRequests.clear();
+          knownAccessCodes.clear();
           authToken = data.token;
           currentUser = data.user;
           localStorage.setItem("pf_token", authToken);
@@ -904,13 +1015,16 @@ window.PFOverlayLock = (function () {
       submitBtn.textContent = "CREATING ACCOUNT...";
 
       try {
-        const res = await fetch("/api/auth/signup", {
+        const res = await fetch(`${API_ORIGIN}/api/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, email, password, confirmPassword }),
         });
         const data = await res.json();
         if (res.ok) {
+          eventMediaCache.clear();
+          eventMediaRequests.clear();
+          knownAccessCodes.clear();
           authToken = data.token;
           currentUser = data.user;
           localStorage.setItem("pf_token", authToken);
@@ -935,6 +1049,8 @@ window.PFOverlayLock = (function () {
   const collectionsGrid = document.getElementById("collections-grid");
   const collectionsBadge = document.getElementById("collections-badge");
   const collectionsEmpty = document.getElementById("collections-empty");
+  const collectionCards = new Map();
+  const MEDIA_CACHE_TTL = 50 * 60 * 1000;
 
   async function openDashboard() {
     if (!authToken) {
@@ -960,6 +1076,7 @@ window.PFOverlayLock = (function () {
         : response?.events || [];
 
       renderCollections(events);
+      void hydrateDashboardMedia(events);
     } catch (error) {
       console.error("Error fetching events:", error);
 
@@ -971,6 +1088,261 @@ window.PFOverlayLock = (function () {
       showToast(error?.message || "Failed to load events");
 
       renderCollections([]);
+    }
+  }
+
+  // Normalizes one raw event record (from getEvents()/createEvent()/
+  // redeemAccessCode()) into the fields the dashboard card and the gallery
+  // bridge below need, tolerating whichever field-naming convention the
+  // backend uses (camelCase vs snake_case, `media` present or not).
+  function normalizeEventRecord(event) {
+    const id = event?.id ?? event?.eventId ?? event?._id ?? "";
+    const name = event?.name ?? event?.title ?? "Untitled event";
+    const accessCode =
+      event?.accessCode ??
+      event?.access_code ??
+      event?.code ??
+      knownAccessCodes.get(id) ??
+      null;
+    const media = Array.isArray(event?.media) ? event.media : [];
+    const photosCount =
+      event?.photosCount ??
+      event?.photos_count ??
+      event?.photoCount ??
+      (media.length
+        ? media.filter((item) => item?.type !== "video").length
+        : null);
+    const videosCount =
+      event?.videosCount ??
+      event?.videos_count ??
+      event?.videoCount ??
+      (media.length
+        ? media.filter((item) => item?.type === "video").length
+        : null);
+
+    return {
+      id,
+      name,
+      accessCode,
+      ownerId: event?.owner_id ?? event?.ownerId ?? null,
+      photosCount,
+      videosCount,
+      media,
+    };
+  }
+
+  function normalizeMedia(media) {
+    return (Array.isArray(media) ? media : [])
+      .filter((item) => item?.url)
+      .map((item) => ({
+        ...item,
+        type: item.type || "image",
+        filename:
+          item.filename || item.storage_path?.split("/").pop() || "Event photo",
+      }));
+  }
+
+  async function getCachedEventMedia(eventId) {
+    const cached = eventMediaCache.get(eventId);
+    if (cached && Date.now() - cached.cachedAt < MEDIA_CACHE_TTL) {
+      return cached.media;
+    }
+
+    if (eventMediaRequests.has(eventId)) {
+      return eventMediaRequests.get(eventId);
+    }
+
+    const request = window.PhotoFinderApi.getEventPhotos(eventId)
+      .then((response) => {
+        const media = normalizeMedia(
+          Array.isArray(response)
+            ? response
+            : response?.media || response?.photos,
+        );
+        eventMediaCache.set(eventId, { media, cachedAt: Date.now() });
+        return media;
+      })
+      .finally(() => eventMediaRequests.delete(eventId));
+
+    eventMediaRequests.set(eventId, request);
+    return request;
+  }
+
+  function mediaSummary(media) {
+    const videos = media.filter((item) => item.type === "video").length;
+    return { photos: media.length - videos, videos };
+  }
+
+  // ROOT CAUSE OF "0 collections": this function was called from
+  // loadCollections() (both on success and in every error branch) but was
+  // never defined anywhere in this file — the same class of bug the
+  // `logout` comment above describes. Calling an undefined function throws
+  // a ReferenceError, which loadCollections()'s own try/catch swallowed
+  // into a generic toast, so the dashboard grid/badge/empty-state were
+  // never actually updated and stayed on their static zero-state markup no
+  // matter what getEvents() returned. This implementation is driven
+  // entirely by the current Events API response — no legacy collections
+  // endpoint shape involved.
+  function renderCollections(events) {
+    if (!collectionsGrid) return;
+
+    const list = Array.isArray(events) ? events : [];
+    collectionCards.clear();
+
+    if (collectionsBadge) {
+      collectionsBadge.textContent = `${list.length} collection${list.length === 1 ? "" : "s"}`;
+    }
+
+    collectionsGrid.innerHTML = "";
+
+    if (!list.length) {
+      collectionsEmpty?.classList.remove("hidden");
+      collectionsGrid.classList.add("hidden");
+      return;
+    }
+
+    collectionsEmpty?.classList.add("hidden");
+    collectionsGrid.classList.remove("hidden");
+
+    list.forEach((rawEvent) => {
+      const collection = normalizeEventRecord(rawEvent);
+      // The event-list response has no safe cover URL. Leave the card on the
+      // local fallback until its authorized photo request supplies a signed URL.
+      const thumbUrl = null;
+      const isOwner =
+        collection.ownerId && collection.ownerId === currentUser?.id;
+
+      // NOTE: these class names (collection-card / collection-thumb-box /
+      // collection-thumb / collection-info / collection-name /
+      // collection-meta / collection-code) follow the same naming
+      // convention as the existing upload file-preview cards. If
+      // style.css doesn't already have matching rules for them, the cards
+      // will still render and work correctly (clickable, safe thumbnail),
+      // just unstyled — add matching CSS rules to match your design.
+      const card = document.createElement("div");
+      card.className = "collection-card";
+      card.dataset.eventId = collection.id;
+      card.innerHTML = `
+        <div class="card-cover">
+          <img class="collection-thumb" src="${escapeHtml(thumbUrl || EVENT_THUMB_FALLBACK)}" alt="" loading="lazy" />
+        </div>
+        <div class="card-content">
+          <div class="card-title" title="${escapeHtml(collection.name)}">${escapeHtml(collection.name)}</div>
+          <div class="card-stats">${collection.photosCount === null ? "Loading media…" : `${collection.photosCount} photo${collection.photosCount === 1 ? "" : "s"} · ${collection.videosCount} video${collection.videosCount === 1 ? "" : "s"}`}</div>
+          <div class="card-code ${collection.accessCode ? "" : "unavailable"}">CODE: <strong>${escapeHtml(collection.accessCode || "Code unavailable")}</strong></div>
+          <div class="card-actions">
+            <button type="button" class="secondary-button view-btn">VIEW COLLECTION</button>
+            ${isOwner ? '<button type="button" class="delete-col-btn" title="Delete collection" aria-label="Delete collection">⌫</button>' : ""}
+          </div>
+        </div>
+      `;
+
+      const thumbImg = card.querySelector(".collection-thumb");
+      thumbImg?.addEventListener(
+        "error",
+        () => {
+          thumbImg.onerror = null;
+          thumbImg.src = EVENT_THUMB_FALLBACK;
+        },
+        { once: true },
+      );
+
+      card.addEventListener("click", () => openEventGallery(rawEvent));
+      card.querySelector(".view-btn")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openEventGallery(rawEvent);
+      });
+      card
+        .querySelector(".delete-col-btn")
+        ?.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openDeleteEventModal(rawEvent);
+        });
+
+      collectionsGrid.appendChild(card);
+      collectionCards.set(collection.id, { card, event: rawEvent });
+    });
+  }
+
+  async function hydrateCollectionCard(rawEvent) {
+    const collection = normalizeEventRecord(rawEvent);
+    if (!collection.id) return;
+
+    try {
+      const media = collection.media.length
+        ? normalizeMedia(collection.media)
+        : await getCachedEventMedia(collection.id);
+      const cardEntry = collectionCards.get(collection.id);
+      if (!cardEntry) return;
+      const summary = mediaSummary(media);
+      const stats = cardEntry.card.querySelector(".card-stats");
+      if (stats) {
+        stats.textContent = `${summary.photos} photo${summary.photos === 1 ? "" : "s"} · ${summary.videos} video${summary.videos === 1 ? "" : "s"}`;
+      }
+      const cover = cardEntry.card.querySelector(".collection-thumb");
+      if (cover && media[0]?.url) cover.src = media[0].url;
+    } catch (error) {
+      console.warn("Could not hydrate event media:", error);
+      const stats = collectionCards
+        .get(collection.id)
+        ?.card.querySelector(".card-stats");
+      if (stats) stats.textContent = "Media unavailable";
+    }
+  }
+
+  async function hydrateDashboardMedia(events) {
+    const queue = [...events];
+    const worker = async () => {
+      while (queue.length) {
+        await hydrateCollectionCard(queue.shift());
+      }
+    };
+    await Promise.all([worker(), worker()]);
+  }
+
+  // Bridges any event record (from a dashboard card click, or from the
+  // "Enter Code" success path in handleCodeVerification) into the existing
+  // openGallery() renderer below. This was previously called but never
+  // defined, which silently broke the "Enter Code" -> gallery flow.
+  // If the event record doesn't already carry a full media array (some
+  // list endpoints only return counts), it fetches the authoritative photo
+  // list via the existing PhotoFinderApi.getEventPhotos() — no new
+  // endpoint, no legacy event-photos route.
+  async function openEventGallery(event) {
+    const collection = normalizeEventRecord(event);
+    const cachedMedia = collection.media.length
+      ? normalizeMedia(collection.media)
+      : eventMediaCache.get(collection.id)?.media;
+
+    openGallery({
+      name: collection.name,
+      accessCode: collection.accessCode,
+      photosCount: collection.photosCount,
+      videosCount: collection.videosCount,
+      media: cachedMedia || [],
+      loading: !cachedMedia,
+    });
+
+    if (cachedMedia) return;
+
+    try {
+      const media = await getCachedEventMedia(collection.id);
+      const summary = mediaSummary(media);
+      openGallery({
+        name: collection.name,
+        accessCode: collection.accessCode,
+        photosCount: summary.photos,
+        videosCount: summary.videos,
+        media,
+      });
+    } catch (error) {
+      console.warn("Failed to load event photos:", error);
+      openGallery({
+        ...collection,
+        media: [],
+        loading: false,
+        loadError: true,
+      });
     }
   }
 
@@ -1196,6 +1568,11 @@ window.PFOverlayLock = (function () {
         accessCode: codeResponse?.access_code || null,
       };
 
+      if (createdEvent.accessCode) {
+        knownAccessCodes.set(event.id, createdEvent.accessCode);
+      }
+      eventMediaCache.delete(event.id);
+
       closeAllModals();
 
       showSuccessModal(codeResponse?.access_code || "GENERATED", createdEvent);
@@ -1223,15 +1600,17 @@ window.PFOverlayLock = (function () {
     openModal(successModal);
   }
 
-  document.getElementById("copy-code-btn")?.addEventListener("click", () => {
-    const code = document.getElementById("generated-code-value").textContent;
-    navigator.clipboard.writeText(code);
-    document.getElementById("copy-text").textContent = "COPIED!";
-    showToast(`Access code copied: ${code}`);
-    setTimeout(() => {
-      document.getElementById("copy-text").textContent = "COPY CODE";
-    }, 2000);
-  });
+  document
+    .getElementById("copy-code-btn")
+    ?.addEventListener("click", async () => {
+      const code = document.getElementById("generated-code-value").textContent;
+      if (!(await copyText(code))) return;
+      document.getElementById("copy-text").textContent = "COPIED!";
+      showToast(`Access code copied: ${code}`);
+      setTimeout(() => {
+        document.getElementById("copy-text").textContent = "COPY CODE";
+      }, 2000);
+    });
 
   document.getElementById("success-done-btn")?.addEventListener("click", () => {
     closeAllModals();
@@ -1250,19 +1629,36 @@ window.PFOverlayLock = (function () {
   function openGallery(collection) {
     currentGalleryMedia = collection.media || [];
     document.getElementById("gallery-title").textContent = collection.name;
-    const photos = collection.photosCount || 0;
-    const videos = collection.videosCount || 0;
-    document.getElementById("gallery-stats").textContent =
-      `${photos} photo${photos === 1 ? "" : "s"} · ${videos} video${videos === 1 ? "" : "s"}`;
-    document.getElementById("gallery-code-text").textContent =
-      collection.accessCode;
+    const photos = collection.photosCount ?? 0;
+    const videos = collection.videosCount ?? 0;
+    document.getElementById("gallery-stats").textContent = collection.loading
+      ? "Loading memories…"
+      : `${photos} photo${photos === 1 ? "" : "s"} · ${videos} video${videos === 1 ? "" : "s"}`;
+    const galleryCode = document.getElementById("gallery-code-text");
+    const galleryCodeBadge = document.getElementById("gallery-code-badge");
+    galleryCode.textContent = collection.accessCode || "Code unavailable";
+    galleryCodeBadge.classList.toggle(
+      "code-unavailable",
+      !collection.accessCode,
+    );
+    galleryCodeBadge.title = collection.accessCode
+      ? "Click to copy code"
+      : "This code is unavailable in this session";
 
     const grid = document.getElementById("gallery-grid");
     const empty = document.getElementById("gallery-empty");
     grid.innerHTML = "";
 
-    if (currentGalleryMedia.length === 0) {
+    if (collection.loading) {
+      empty.classList.add("hidden");
+      grid.innerHTML =
+        '<div class="gallery-loading" role="status">Loading event memories…</div>';
+    } else if (currentGalleryMedia.length === 0) {
       empty.classList.remove("hidden");
+      if (collection.loadError) {
+        empty.querySelector("p").textContent =
+          "We could not load this collection. Please try again.";
+      }
     } else {
       empty.classList.add("hidden");
 
@@ -1310,10 +1706,66 @@ window.PFOverlayLock = (function () {
 
   document
     .getElementById("gallery-code-badge")
-    ?.addEventListener("click", () => {
+    ?.addEventListener("click", async () => {
       const code = document.getElementById("gallery-code-text").textContent;
-      navigator.clipboard.writeText(code);
+      if (!(await copyText(code))) return;
       showToast(`Code copied: ${code}`);
+    });
+
+  let pendingDeletionEvent = null;
+
+  function openDeleteEventModal(event) {
+    const collection = normalizeEventRecord(event);
+    if (!collection.id || collection.ownerId !== currentUser?.id) {
+      showToast("Only the event owner can delete this collection.");
+      return;
+    }
+
+    pendingDeletionEvent = collection;
+    document.getElementById("delete-event-name").textContent = collection.name;
+    openModal(deleteEventModal);
+  }
+
+  function closeDeleteEventModal() {
+    pendingDeletionEvent = null;
+    closeAllModals();
+  }
+
+  document
+    .getElementById("delete-event-close")
+    ?.addEventListener("click", closeDeleteEventModal);
+  document
+    .getElementById("delete-event-cancel-btn")
+    ?.addEventListener("click", closeDeleteEventModal);
+  document
+    .getElementById("delete-event-confirm-btn")
+    ?.addEventListener("click", async () => {
+      if (!pendingDeletionEvent?.id) return;
+
+      const button = document.getElementById("delete-event-confirm-btn");
+      const eventId = pendingDeletionEvent.id;
+      button.disabled = true;
+      button.textContent = "DELETING…";
+
+      try {
+        await window.PhotoFinderApi.deleteEvent(eventId);
+        eventMediaCache.delete(eventId);
+        knownAccessCodes.delete(eventId);
+        collectionCards.get(eventId)?.card.remove();
+        collectionCards.delete(eventId);
+        closeDeleteEventModal();
+        showToast("Collection deleted permanently.");
+        await loadCollections();
+      } catch (error) {
+        if (error?.status === 401) {
+          logout();
+          return;
+        }
+        showToast(error?.message || "Could not delete this collection.");
+      } finally {
+        button.disabled = false;
+        button.textContent = "DELETE PERMANENTLY";
+      }
     });
 
   // ==================== 11. MEDIA VIEWER / LIGHTBOX ====================
@@ -1553,20 +2005,6 @@ window.PFOverlayLock = (function () {
     );
   }
 
-  function escapeHtml(value) {
-    return String(value ?? "").replace(
-      /[&<>'"]/g,
-      (char) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          "'": "&#39;",
-          '"': "&quot;",
-        })[char],
-    );
-  }
-
   async function loadEvents() {
     eventsList.innerHTML =
       '<div class="find-state-message">Loading available events…</div>';
@@ -1596,6 +2034,14 @@ window.PFOverlayLock = (function () {
 
           const date = event.date ?? event.eventDate ?? event.created_at ?? "";
 
+          // FIX: this previously rendered src="" on the <img>, which the
+          // browser resolves as a request to the current page and always
+          // fails — showing a broken-image icon for every single event,
+          // even ones with no cover image at all. Use a real cover image
+          // when the event has one, otherwise fall back to the inline
+          // placeholder icon (never an empty src, never an invented URL).
+          const thumbSrc = getEventThumbUrl(event) || EVENT_THUMB_FALLBACK;
+
           return `
               <button
                 type="button"
@@ -1604,7 +2050,7 @@ window.PFOverlayLock = (function () {
               >
                 <img
                   class="find-event-thumb"
-                  src=""
+                  src="${escapeHtml(thumbSrc)}"
                   alt=""
                   aria-hidden="true"
                 >
@@ -1619,6 +2065,19 @@ window.PFOverlayLock = (function () {
         .join("");
 
       eventsList.querySelectorAll(".find-event-option").forEach((button) => {
+        // If a real cover image URL was used above and it fails to load
+        // (404, expired signed URL, etc.), fall back to the same inline
+        // placeholder instead of leaving a broken-image icon on screen.
+        const thumbImg = button.querySelector(".find-event-thumb");
+        thumbImg?.addEventListener(
+          "error",
+          () => {
+            thumbImg.onerror = null;
+            thumbImg.src = EVENT_THUMB_FALLBACK;
+          },
+          { once: true },
+        );
+
         button.addEventListener("click", () => {
           eventsList.querySelectorAll(".find-event-option").forEach((item) => {
             item.classList.remove("selected");
@@ -2183,15 +2642,17 @@ window.PFOverlayLock = (function () {
   accessCodeBtn?.addEventListener("click", redeemEventAccessCode);
 
   accessCodeInput?.addEventListener("input", (event) => {
-    let value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-
-    if (value.length > 4) {
-      value = `${value.slice(0, 4)}-${value.slice(4, 8)}`;
-    }
-
-    event.target.value = value;
+    event.target.value = formatEventAccessCode(event.target.value);
 
     setAccessCodeMessage("");
+  });
+
+  accessCodeInput?.addEventListener("paste", (event) => {
+    const pastedText = event.clipboardData?.getData("text");
+    if (typeof pastedText !== "string") return;
+    event.preventDefault();
+    accessCodeInput.value = pastedText;
+    accessCodeInput.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
   accessCodeInput?.addEventListener("keydown", (event) => {

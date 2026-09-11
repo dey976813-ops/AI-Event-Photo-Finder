@@ -230,6 +230,23 @@
     return parseApiResponse(response);
   }
 
+  async function deleteEvent(eventId, signal) {
+    if (!eventId) {
+      throw new Error("Event ID is required.");
+    }
+
+    const response = await fetch(
+      apiUrl(`/api/events/${encodeURIComponent(eventId)}`),
+      {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        signal,
+      },
+    );
+
+    return parseApiResponse(response);
+  }
+
   window.PhotoFinderApi = {
     API_BASE_URL,
     healthCheck,
@@ -240,5 +257,6 @@
     findMyPhotos,
     uploadEventPhotos,
     getEventPhotos,
+    deleteEvent,
   };
 })();

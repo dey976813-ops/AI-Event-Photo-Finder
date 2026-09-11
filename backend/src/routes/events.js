@@ -307,6 +307,113 @@ router.get("/:eventId/photos", requireAuth, async (req, res, next) => {
   }
 });
 
+router.delete("/:eventId", requireAuth, async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID is required",
+      });
+    }
+
+    const { data: event, error: eventError } = await supabase
+      .from("events")
+      .select("id, owner_id")
+      .eq("id", eventId)
+      .maybeSingle();
+
+    if (eventError) {
+      return next(eventError);
+    }
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    if (event.owner_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the event owner can delete this event",
+      });
+    }
+
+    const { data: photos, error: photosError } = await supabase
+      .from("photos")
+      .select("storage_path")
+      .eq("event_id", eventId);
+
+    if (photosError) {
+      return next(photosError);
+    }
+
+    const storagePaths = [
+      ...new Set(
+        (photos || [])
+          .map((photo) => photo.storage_path)
+          .filter(
+            (storagePath) => typeof storagePath === "string" && storagePath,
+          ),
+      ),
+    ];
+
+    if (storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove(storagePaths);
+
+      if (storageError) {
+        console.error("Event storage cleanup error:", storageError);
+
+        return res.status(500).json({
+          success: false,
+          message: "Could not remove event media",
+        });
+      }
+    }
+
+    const { error: accessDeleteError } = await supabase
+      .from("event_access")
+      .delete()
+      .eq("event_id", eventId);
+
+    if (accessDeleteError) {
+      return next(accessDeleteError);
+    }
+
+    const { data: deletedEvent, error: deleteError } = await supabase
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+      .eq("owner_id", req.user.id)
+      .select("id")
+      .maybeSingle();
+
+    if (deleteError) {
+      return next(deleteError);
+    }
+
+    if (!deletedEvent) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Event deleted successfully",
+      event_id: eventId,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/", requireAuth, async (req, res) => {
   try {
     const { data: ownedEvents, error: ownedError } = await supabase
