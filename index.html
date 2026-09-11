@@ -2,12 +2,1259 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>momentai</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Photo Finder — Preserved in Motion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;1,400;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <!-- Scroll Progress Indicator -->
+    <div class="scroll-progress-track">
+      <div class="scroll-progress-bar" id="scroll-progress-bar"></div>
+    </div>
+
+    <!-- Fixed Navbar -->
+    <nav class="nav" id="main-nav">
+      <div class="brand" id="nav-brand">MEMORY<span>VERSE</span></div>
+      <div class="nav-menu">
+        <a href="#section-intro" class="nav-link-item" id="nav-link-intro"
+          >DISCOVERY</a
+        >
+        <a href="#section-how" class="nav-link-item" id="nav-link-how"
+          >HOW IT WORKS</a
+        >
+        <a href="#section-search" class="nav-link-item" id="nav-link-search"
+          >SMART SEARCH</a
+        >
+        <a
+          href="#section-editorial"
+          class="nav-link-item"
+          id="nav-link-editorial"
+          >FEATURES</a
+        >
+        <a
+          href="#section-use-cases"
+          class="nav-link-item"
+          id="nav-link-usecases"
+          >STORIES</a
+        >
+        <a href="#section-privacy" class="nav-link-item" id="nav-link-privacy"
+          >PRIVACY</a
+        >
+      </div>
+      <div class="nav-actions">
+        <button class="nav-btn nav-link" id="nav-find-photos-btn">
+          FIND MY PHOTOS
+        </button>
+        <button class="nav-btn nav-pill" id="nav-auth-btn">LOGIN</button>
+        <button class="nav-btn nav-pill hidden" id="nav-dashboard-btn">
+          DASHBOARD
+        </button>
+        <button class="nav-btn nav-link hidden" id="nav-logout-btn">
+          LOGOUT
+        </button>
+      </div>
+    </nav>
+
+    <!-- Pinned Canvas Background -->
+    <canvas id="sequence-canvas"></canvas>
+
+    <!-- Scroll Container with Cinematic Section Overlays -->
+    <div id="scroll-container">
+      <!-- Section 1: Hero (Airplane window) -->
+      <section class="scroll-section section-hero" id="section-hero">
+        <div class="section-content">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>YOUR VISUAL MEMORY
+          </p>
+          <h1 class="hero-headline">
+            <div class="mask-line">
+              <span class="line-inner">FIND THE PHOTO</span>
+            </div>
+            <div class="mask-line">
+              <span class="line-inner italic-line"
+                >you've been looking for.</span
+              >
+            </div>
+          </h1>
+          <p class="hero-description animated-text">
+            Find your moments inside any event with a private face search
+            designed for cinematic memories.
+          </p>
+          <div class="hero-actions">
+            <button class="primary-button magnet-btn" id="hero-find-photos-btn">
+              <span>FIND MY PHOTOS</span> <span class="btn-arrow">→</span>
+            </button>
+            <button class="text-button" id="hero-upload-btn">
+              <span>UPLOAD EVENT PHOTOS</span> <span class="btn-arrow">↑</span>
+            </button>
+          </div>
+          <div class="hero-badges">
+            <span class="hero-badge-pill">🔒 Private face search</span>
+            <span class="hero-badge-pill">✨ Cinematic discovery</span>
+            <span class="hero-badge-pill">💎 Your memories, matched</span>
+          </div>
+        </div>
+        <div class="hero-scroll">
+          <span>SCROLL TO EXPLORE</span>
+          <div class="scroll-line"></div>
+        </div>
+      </section>
+
+      <!-- Section 2: Product Intro & 3 Editorial Words -->
+      <section class="scroll-section section-intro" id="section-intro">
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>PRODUCT PHILOSOPHY
+          </p>
+          <div class="parallax-dual-heading">
+            <h2 class="editorial-heading-1 mask-line">
+              <span class="line-inner">YOUR MEMORIES.</span>
+            </h2>
+            <h2 class="editorial-heading-2 mask-line">
+              <span class="line-inner accent-text">EASIER TO FIND.</span>
+            </h2>
+          </div>
+          <p class="word-reveal-text" id="intro-word-reveal">
+            Photo Finder gives your photos and videos a smarter way to be
+            discovered, shared, and experienced.
+          </p>
+
+          <!-- Three Editorial Feature Words -->
+          <div class="editorial-pillars" id="editorial-pillars">
+            <div class="pillar-item active" data-pillar="0">
+              <span class="pillar-word">FIND</span>
+              <span class="pillar-desc"
+                >Pinpoint specific moments instantly with semantic search
+                without tedious scrolling.</span
+              >
+            </div>
+            <div class="pillar-separator">/</div>
+            <div class="pillar-item" data-pillar="1">
+              <span class="pillar-word">SHARE</span>
+              <span class="pillar-desc"
+                >Distribute isolated, secure albums to anyone with a simple
+                8-character code.</span
+              >
+            </div>
+            <div class="pillar-separator">/</div>
+            <div class="pillar-item" data-pillar="2">
+              <span class="pillar-word">EXPERIENCE</span>
+              <span class="pillar-desc"
+                >Relive memories in cinematic fullscreen fidelity with lossless
+                4K playback.</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: How It Works (Scroll-Linked Step Sequence) -->
+      <section class="scroll-section section-how" id="section-how">
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>WORKFLOW
+          </p>
+          <h2 class="section-heading mask-line">
+            <span class="line-inner">THREE STEPS. ZERO HASSLE.</span>
+          </h2>
+
+          <div class="step-sequence-container">
+            <div class="step-interactive-item active" id="step-item-1">
+              <div class="step-num-parallax">01</div>
+              <div class="step-text-block">
+                <h3 class="mask-line">
+                  <span class="line-inner">CHOOSE YOUR EVENT</span>
+                </h3>
+                <p>Start with the event where your memories were captured.</p>
+              </div>
+            </div>
+            <div class="step-interactive-item" id="step-item-2">
+              <div class="step-num-parallax">02</div>
+              <div class="step-text-block">
+                <h3 class="mask-line">
+                  <span class="line-inner">UPLOAD YOUR FACE</span>
+                </h3>
+                <p>
+                  Share one clear front-facing photo so we can recognize your
+                  moments.
+                </p>
+              </div>
+            </div>
+            <div class="step-interactive-item" id="step-item-3">
+              <div class="step-num-parallax">03</div>
+              <div class="step-text-block">
+                <h3 class="mask-line">
+                  <span class="line-inner">DISCOVER YOUR MEMORIES</span>
+                </h3>
+                <p>
+                  We scan the event and return only the real photos matched to
+                  your face.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Interactive Floating Upload UI Demo -->
+      <section
+        class="scroll-section section-upload-demo"
+        id="section-upload-demo"
+      >
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>CREATOR INTERFACE
+          </p>
+          <h2 class="section-heading mask-line">
+            <span class="line-inner">UPLOAD ONCE. SHARE EASILY.</span>
+          </h2>
+          <p class="section-subheading">
+            A floating interface designed for effortless media ingestion and
+            code minting.
+          </p>
+
+          <div class="floating-upload-demo glass-panel">
+            <div class="upload-demo-header">
+              <div class="demo-window-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <span class="demo-collection-title"
+                >Paris & Alps — Summer 2026</span
+              >
+              <span class="demo-status-pill" id="demo-status-pill"
+                >Processing Media</span
+              >
+            </div>
+
+            <div class="upload-demo-files-list">
+              <div class="demo-file-row done" id="demo-file-1">
+                <div class="file-icon">📸</div>
+                <div class="file-info">
+                  <span class="file-name">IMG_2841_PARIS.JPG</span>
+                  <span class="file-size">14.2 MB · RAW EXIF</span>
+                </div>
+                <div class="file-status">100% ✓</div>
+              </div>
+
+              <div class="demo-file-row done" id="demo-file-2">
+                <div class="file-icon">🎥</div>
+                <div class="file-info">
+                  <span class="file-name">VIDEO_019_EIFFEL_NIGHT.MP4</span>
+                  <span class="file-size">84.6 MB · 4K 60FPS</span>
+                </div>
+                <div class="file-status">100% ✓</div>
+              </div>
+
+              <div class="demo-file-row active" id="demo-file-3">
+                <div class="file-icon">📸</div>
+                <div class="file-info">
+                  <span class="file-name">IMG_2847_LOUVRE.JPG</span>
+                  <span class="file-size">18.1 MB · RAW EXIF</span>
+                </div>
+                <div class="file-status">100% ✓</div>
+              </div>
+            </div>
+
+            <div class="demo-result-box" id="demo-result-box">
+              <span class="demo-ready-label">COLLECTION READY</span>
+              <div class="demo-code-stamp">PX7K-29QM</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Access Code Section (In the Clouds) -->
+      <section class="scroll-section section-code" id="section-code">
+        <div class="section-content">
+          <div class="cinematic-card code-interactive-card">
+            <p class="eyebrow animated-label">
+              <span class="label-line"></span>VIEWER ACCESS
+            </p>
+            <h2 class="mask-line">
+              <span class="line-inner">YOUR ACCESS CODE</span>
+            </h2>
+
+            <div class="access-code-animated-box" id="code-anim-box">
+              <span class="code-char">P</span>
+              <span class="code-char">X</span>
+              <span class="code-char">7</span>
+              <span class="code-char">K</span>
+              <span class="code-dash">-</span>
+              <span class="code-char">2</span>
+              <span class="code-char">9</span>
+              <span class="code-char">Q</span>
+              <span class="code-char">M</span>
+            </div>
+
+            <form class="inline-code-form" id="inline-code-form">
+              <div class="input-wrapper">
+                <input
+                  type="text"
+                  id="inline-code-input"
+                  placeholder="Enter access code"
+                  maxlength="9"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </div>
+              <button
+                type="submit"
+                class="primary-button full magnet-btn"
+                id="inline-code-submit"
+              >
+                <span>VIEW MEMORIES</span> <span class="btn-arrow">→</span>
+              </button>
+              <div class="code-status-msg" id="inline-code-msg"></div>
+            </form>
+
+            <div class="code-quick-demo">
+              <button
+                type="button"
+                class="copy-code-pill-btn"
+                id="inline-copy-demo-btn"
+              >
+                <span id="copy-pill-icon">📋</span>
+                <span id="copy-pill-text">COPY CODE</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Smart Search & Search Results Demo -->
+      <section class="scroll-section section-search" id="section-search">
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>INTELLIGENT DISCOVERY
+          </p>
+          <div class="search-heading-block">
+            <h2 class="mask-line">
+              <span class="line-inner">STOP SCROLLING.</span>
+            </h2>
+            <h2 class="mask-line">
+              <span class="line-inner accent-text">START FINDING.</span>
+            </h2>
+          </div>
+          <p class="section-subheading">
+            Natural language visual search that understands the contents of
+            every photo.
+          </p>
+
+          <!-- Dynamic Typewriter Search Bar -->
+          <div class="search-demo-container">
+            <div class="search-bar-mockup">
+              <span class="search-icon">🔍</span>
+              <span class="search-typewriter-text" id="typewriter-text"></span>
+              <span class="typewriter-cursor">|</span>
+            </div>
+
+            <!-- Staggered Search Results Grid -->
+            <div class="search-results-mockup" id="search-results-grid">
+              <div class="result-card best-match" style="--delay: 0.1s">
+                <div class="result-badge best-badge">★ BEST MATCH</div>
+                <img
+                  src="/frames/ezgif-frame-010.jpg"
+                  alt="Match 1"
+                  loading="lazy"
+                />
+                <div class="result-overlay">
+                  <span>Paris Sunset · 98% Confidence</span>
+                </div>
+              </div>
+              <div class="result-card" style="--delay: 0.25s">
+                <div class="result-badge similar-badge">SIMILAR</div>
+                <img
+                  src="/frames/ezgif-frame-030.jpg"
+                  alt="Match 2"
+                  loading="lazy"
+                />
+                <div class="result-overlay"><span>Golden Hour · Sky</span></div>
+              </div>
+              <div class="result-card" style="--delay: 0.4s">
+                <div class="result-badge similar-badge">SIMILAR</div>
+                <img
+                  src="/frames/ezgif-frame-060.jpg"
+                  alt="Match 3"
+                  loading="lazy"
+                />
+                <div class="result-overlay"><span>Clouds & Wing</span></div>
+              </div>
+              <div class="result-card" style="--delay: 0.55s">
+                <div class="result-badge similar-badge">SIMILAR</div>
+                <img
+                  src="/frames/ezgif-frame-090.jpg"
+                  alt="Match 4"
+                  loading="lazy"
+                />
+                <div class="result-overlay"><span>Horizon Glow</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: Editorial Feature List (Built Around Your Memories) -->
+      <section class="scroll-section section-editorial" id="section-editorial">
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>SYSTEM CAPABILITIES
+          </p>
+          <h2 class="section-heading mask-line">
+            <span class="line-inner">BUILT AROUND YOUR MEMORIES.</span>
+          </h2>
+
+          <div class="editorial-feature-list" id="editorial-features">
+            <div
+              class="editorial-row"
+              data-preview="Smart semantic indexing across millions of visual elements."
+            >
+              <span class="row-number">01</span>
+              <span class="row-title">SMART SEARCH</span>
+              <span class="row-tag">AI Indexing</span>
+            </div>
+            <div
+              class="editorial-row"
+              data-preview="Isolated storage encrypted and protected with individual access keys."
+            >
+              <span class="row-number">02</span>
+              <span class="row-title">PRIVATE COLLECTIONS</span>
+              <span class="row-tag">Encrypted Vault</span>
+            </div>
+            <div
+              class="editorial-row"
+              data-preview="One 8-character code unlocks instantaneous viewing on any browser."
+            >
+              <span class="row-number">03</span>
+              <span class="row-title">EASY SHARING</span>
+              <span class="row-tag">Zero Account</span>
+            </div>
+            <div
+              class="editorial-row"
+              data-preview="Unified timeline for both ultra-high-resolution RAW photos and 4K video."
+            >
+              <span class="row-number">04</span>
+              <span class="row-title">PHOTOS + VIDEOS</span>
+              <span class="row-tag">Lossless Media</span>
+            </div>
+            <div
+              class="editorial-row"
+              data-preview="Smooth responsive masonry with theater lightbox and keyboard navigation."
+            >
+              <span class="row-number">05</span>
+              <span class="row-title">BEAUTIFUL GALLERY</span>
+              <span class="row-tag">Cinematic Lightbox</span>
+            </div>
+            <div
+              class="editorial-row"
+              data-preview="Zero lag, instantaneous frame seeking and one-click bulk downloading."
+            >
+              <span class="row-number">06</span>
+              <span class="row-title">FAST DISCOVERY</span>
+              <span class="row-tag">Sub-second Seek</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 8: Use Cases (Made for Moments Worth Remembering) -->
+      <section class="scroll-section section-use-cases" id="section-use-cases">
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>CURATED STORIES
+          </p>
+          <h2 class="section-heading mask-line">
+            <span class="line-inner">MADE FOR MOMENTS WORTH REMEMBERING.</span>
+          </h2>
+
+          <!-- Interactive Story Category Tabs -->
+          <div class="story-tabs" id="story-tabs">
+            <button class="story-tab active" data-story="travel">TRAVEL</button>
+            <button class="story-tab" data-story="weddings">WEDDINGS</button>
+            <button class="story-tab" data-story="events">EVENTS</button>
+            <button class="story-tab" data-story="family">FAMILY</button>
+            <button class="story-tab" data-story="creators">CREATORS</button>
+          </div>
+
+          <div class="story-display-card glass-panel" id="story-display">
+            <div class="story-content">
+              <span class="story-badge" id="story-badge"
+                >EXPEDITION & EXPLORATION</span
+              >
+              <h3 id="story-title">Uncompressed Road Trips & Scenic Flights</h3>
+              <p id="story-desc">
+                Share breathtaking 4K travel clips and high-res RAW photos with
+                travel companions without WhatsApp compression or social media
+                ads.
+              </p>
+              <div class="story-stats">
+                <span>✈️ 100% Original Resolution</span>
+                <span>🔒 Direct Code PX7K-29QM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 9: Privacy & Security (Private by Design) -->
+      <section class="scroll-section section-privacy" id="section-privacy">
+        <div class="section-content wide">
+          <p class="eyebrow animated-label">
+            <span class="label-line"></span>SECURITY & INTEGRITY
+          </p>
+          <div class="privacy-title-block">
+            <h2 class="mask-line">
+              <span class="line-inner">YOUR MEMORIES. YOUR CONTROL.</span>
+            </h2>
+            <h3 class="privacy-subline mask-line">
+              <span class="line-inner accent-text">PRIVATE BY DESIGN.</span>
+            </h3>
+          </div>
+
+          <div class="privacy-pillars-grid">
+            <div class="privacy-pillar glass-panel">
+              <div class="pillar-bullet">— CODE-BASED ACCESS</div>
+              <h4>No Public Discovery</h4>
+              <p>
+                Your albums do not appear on search engines or public feeds.
+                Only those with the specific key can access.
+              </p>
+            </div>
+            <div class="privacy-pillar glass-panel">
+              <div class="pillar-bullet">— CONTROLLED SHARING</div>
+              <h4>Revoke at Any Time</h4>
+              <p>
+                Delete or manage your collections with a single click from your
+                creator dashboard whenever you desire.
+              </p>
+            </div>
+            <div class="privacy-pillar glass-panel">
+              <div class="pillar-bullet">— YOUR COLLECTIONS</div>
+              <h4>Zero Data Harvesting</h4>
+              <p>
+                We do not sell advertising or train generative public models on
+                your personal family and client photos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 10: Eiffel Tower Reveal & Cinematic Statement -->
+      <section class="scroll-section section-upload" id="section-upload">
+        <div class="section-content">
+          <div class="cinematic-statement-block">
+            <div class="statement-line mask-line" id="statement-1">
+              <span class="line-inner">EVERY PHOTO</span>
+            </div>
+            <div class="statement-line mask-line italic-line" id="statement-2">
+              <span class="line-inner">has a story.</span>
+            </div>
+            <div class="statement-line mask-line" id="statement-3">
+              <span class="line-inner accent-text">NOW YOU CAN FIND IT.</span>
+            </div>
+          </div>
+
+          <div class="cinematic-card upload-cta-card">
+            <p class="eyebrow animated-label">
+              <span class="label-line"></span>BEGIN YOUR ARCHIVE
+            </p>
+            <h2>Preserve the moment.</h2>
+            <p class="card-subcopy">
+              Upload your photos and videos. We'll generate a private access
+              code you can share anywhere in seconds.
+            </p>
+            <div class="climax-actions">
+              <button class="primary-button magnet-btn" id="climax-upload-btn">
+                <span>UPLOAD EVENT PHOTOS</span>
+                <span class="btn-arrow">+</span>
+              </button>
+              <button class="secondary-button" id="climax-find-photos-btn">
+                <span>FIND MY PHOTOS</span> <span class="btn-arrow">→</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-left">
+        <div class="brand">PHOTO<span>FINDER</span></div>
+        <p>Private visual memories · Built with cinematic clarity.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#section-hero">Back to Top ↑</a>
+        <a href="#" id="footer-login-link">Creator Login</a>
+        <a href="#" id="footer-find-photos-btn">Find My Photos</a>
+      </div>
+    </footer>
+
+    <!-- ==================== MODALS & DEDICATED VIEWS ==================== -->
+
+    <!-- 1. Enter Access Code Modal -->
+    <div class="modal-backdrop hidden" id="code-modal">
+      <div class="modal-card">
+        <button class="modal-close" id="code-modal-close" aria-label="Close">
+          ×
+        </button>
+        <p class="eyebrow">HAVE A CODE?</p>
+        <h2>ENTER YOUR ACCESS CODE</h2>
+        <p class="modal-subtext">
+          Login to your account and enter the event code to get secure access.
+        </p>
+
+        <form id="modal-code-form">
+          <div class="input-wrapper large">
+            <input
+              type="text"
+              id="modal-code-input"
+              placeholder="Enter code"
+              maxlength="9"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <button
+            type="submit"
+            class="primary-button full"
+            id="modal-code-submit"
+          >
+            VIEW MEMORIES <span>→</span>
+          </button>
+        </form>
+
+        <div class="code-feedback hidden" id="code-feedback">
+          <h4 id="code-feedback-title">CODE NOT FOUND</h4>
+          <p id="code-feedback-sub">Check the code and try again.</p>
+        </div>
+
+        <div class="demo-code-pill" id="demo-code-pill">
+          <span>Try demo code:</span> <strong>PX7K-29QM</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Auth Modal (Login / Sign Up) -->
+    <div class="modal-backdrop hidden" id="auth-modal">
+      <div class="modal-card auth-modal-card">
+        <button class="modal-close" id="auth-modal-close" aria-label="Close">
+          ×
+        </button>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login-btn">LOGIN</button>
+          <button class="auth-tab" id="tab-signup-btn">SIGN UP</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-panel">
+          <h2>LOGIN</h2>
+          <p class="modal-subtext">Welcome back to Photo Finder.</p>
+
+          <form id="login-form">
+            <div class="form-group">
+              <label for="login-email">Email</label>
+              <input
+                type="email"
+                id="login-email"
+                placeholder="name@example.com"
+                required
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input
+                type="password"
+                id="login-password"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+              />
+            </div>
+            <button
+              type="submit"
+              class="primary-button full"
+              id="login-submit-btn"
+            >
+              LOGIN
+            </button>
+          </form>
+
+          <p class="auth-switch-link">
+            Don't have an account?
+            <a href="#" id="switch-to-signup">Create one</a>
+          </p>
+
+          <button type="button" class="demo-fill-btn" id="demo-login-fill">
+            Quick Demo Login (Alex Mercer)
+          </button>
+        </div>
+
+        <!-- Sign Up Form -->
+        <div id="signup-panel" class="hidden">
+          <h2>CREATE YOUR ACCOUNT</h2>
+          <p class="modal-subtext">
+            Start uploading and sharing your memories.
+          </p>
+
+          <form id="signup-form">
+            <div class="form-group">
+              <label for="signup-name">Name</label>
+              <input
+                type="text"
+                id="signup-name"
+                placeholder="Alex Mercer"
+                required
+                autocomplete="name"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signup-email">Email</label>
+              <input
+                type="email"
+                id="signup-email"
+                placeholder="name@example.com"
+                required
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signup-password">Password</label>
+              <input
+                type="password"
+                id="signup-password"
+                placeholder="At least 6 characters"
+                minlength="6"
+                required
+                autocomplete="new-password"
+              />
+            </div>
+            <div class="form-group">
+              <label for="signup-confirm-password">Confirm Password</label>
+              <input
+                type="password"
+                id="signup-confirm-password"
+                placeholder="Confirm your password"
+                minlength="6"
+                required
+                autocomplete="new-password"
+              />
+            </div>
+            <button
+              type="submit"
+              class="primary-button full"
+              id="signup-submit-btn"
+            >
+              CREATE ACCOUNT
+            </button>
+          </form>
+
+          <p class="auth-switch-link">
+            Already have an account?
+            <a href="#" id="switch-to-login">Sign in</a>
+          </p>
+        </div>
+
+        <div class="auth-error-msg hidden" id="auth-error-msg"></div>
+      </div>
+    </div>
+
+    <!-- 3. Uploader Dashboard View -->
+    <div class="fullscreen-view hidden" id="dashboard-view">
+      <div class="dashboard-header">
+        <div class="dashboard-nav-inner">
+          <div class="brand">
+            PHOTO<span>FINDER</span> <span class="badge">UPLOADER</span>
+          </div>
+          <div class="dashboard-user-actions">
+            <span class="user-greeting" id="dashboard-user-name"
+              >Welcome, Alex</span
+            >
+            <button class="nav-btn nav-link" id="dashboard-back-home-btn">
+              ← BACK TO HOME
+            </button>
+            <button class="nav-btn nav-link" id="dashboard-logout-btn">
+              LOGOUT
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-body">
+        <div class="dashboard-hero">
+          <div>
+            <p class="eyebrow">DASHBOARD</p>
+            <h1>YOUR MEMORIES</h1>
+            <p class="dashboard-sub">
+              Upload photos and videos and share them with a private access
+              code.
+            </p>
+          </div>
+          <button class="primary-button action-large" id="dash-create-btn">
+            + CREATE NEW COLLECTION
+          </button>
+        </div>
+
+        <div class="collections-section">
+          <div class="section-title-row">
+            <h2>MY COLLECTIONS</h2>
+            <span class="collection-count-badge" id="collections-badge"
+              >0 collections</span
+            >
+          </div>
+
+          <div class="collections-grid" id="collections-grid">
+            <!-- Populated dynamically via JS -->
+          </div>
+
+          <!-- Empty State -->
+          <div class="empty-state hidden" id="collections-empty">
+            <div class="empty-icon">📁</div>
+            <h3>NO MEMORIES YET</h3>
+            <p>Upload photos or videos to start building this collection.</p>
+            <button class="primary-button" id="empty-create-btn">
+              CREATE NEW COLLECTION
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Create Collection & Upload Modal -->
+    <div class="modal-backdrop hidden" id="upload-modal">
+      <div class="modal-card upload-modal-card">
+        <button class="modal-close" id="upload-modal-close" aria-label="Close">
+          ×
+        </button>
+        <p class="eyebrow">NEW COLLECTION</p>
+        <h2>UPLOAD YOUR MEMORIES</h2>
+
+        <div class="form-group">
+          <label for="upload-col-name">COLLECTION NAME</label>
+          <input
+            type="text"
+            id="upload-col-name"
+            placeholder="e.g. Paris Trip — 2026"
+            maxlength="80"
+          />
+        </div>
+
+        <!-- Drag and drop zone -->
+        <div class="drop-zone" id="drop-zone">
+          <input
+            type="file"
+            id="file-input"
+            multiple
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+          />
+          <div class="drop-zone-content">
+            <div class="drop-icon">☁️</div>
+            <h3>DROP EVENT PHOTOS HERE</h3>
+            <p>or choose files from your device</p>
+            <span class="drop-formats">Supports JPG, PNG, WEBP</span>
+            <button
+              type="button"
+              class="secondary-button"
+              id="browse-files-btn"
+            >
+              Browse Files
+            </button>
+          </div>
+        </div>
+
+        <!-- Selected files preview list -->
+        <div
+          class="selected-files-container hidden"
+          id="selected-files-container"
+        >
+          <div class="selected-files-header">
+            <span id="selected-count">0 files selected</span>
+            <button type="button" class="clear-all-btn" id="clear-files-btn">
+              Clear all
+            </button>
+          </div>
+          <div class="files-preview-grid" id="files-preview-grid"></div>
+        </div>
+
+        <!-- Progress bar -->
+        <div
+          class="upload-progress-container hidden"
+          id="upload-progress-container"
+        >
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="upload-progress-fill"></div>
+          </div>
+          <span class="progress-label" id="upload-progress-label"
+            >Uploading media... 0%</span
+          >
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="text-button" id="upload-cancel-btn">
+            Cancel
+          </button>
+          <button type="button" class="primary-button" id="upload-submit-btn">
+            UPLOAD & CREATE CODE <span>→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Access Code Generated Success Modal -->
+    <div class="modal-backdrop hidden" id="success-modal">
+      <div class="modal-card success-modal-card">
+        <div class="success-badge">✓</div>
+        <p class="eyebrow">YOUR MEMORIES ARE READY.</p>
+        <h2>YOUR ACCESS CODE</h2>
+        <p class="modal-subtext">
+          Share this code with anyone you want to give access to this
+          collection.
+        </p>
+
+        <div class="code-display-box">
+          <div class="code-value" id="generated-code-value">PX7K-29QM</div>
+          <button class="copy-button" id="copy-code-btn" title="Copy code">
+            <span id="copy-icon">📋</span>
+            <span id="copy-text">COPY CODE</span>
+          </button>
+        </div>
+
+        <div class="success-actions">
+          <button class="secondary-button" id="success-done-btn">
+            Back to Dashboard
+          </button>
+          <button class="primary-button" id="success-view-btn">
+            VIEW COLLECTION <span>→</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Private Collection Viewer (Gallery) -->
+    <div class="fullscreen-view gallery-view hidden" id="gallery-view">
+      <div class="gallery-header">
+        <div class="gallery-nav-inner">
+          <button class="nav-btn nav-link" id="gallery-back-btn">← BACK</button>
+          <div class="gallery-title-group">
+            <h2 id="gallery-title">PARIS TRIP — 2026</h2>
+            <span class="gallery-meta" id="gallery-stats"
+              >24 photos · 3 videos</span
+            >
+          </div>
+          <div
+            class="gallery-code-pill"
+            id="gallery-code-badge"
+            title="Click to copy code"
+          >
+            <span>CODE:</span> <strong id="gallery-code-text">PX7K-29QM</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="gallery-container">
+        <div class="gallery-grid" id="gallery-grid">
+          <!-- Media items rendered via JS -->
+        </div>
+        <div class="gallery-empty hidden" id="gallery-empty">
+          <h3>NO MEMORIES YET</h3>
+          <p>This collection does not contain any photos or videos yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. Delete Collection Confirmation -->
+    <div
+      class="modal-backdrop hidden"
+      id="delete-event-modal"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-card delete-event-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-event-title"
+      >
+        <button class="modal-close" id="delete-event-close" aria-label="Close">
+          ×
+        </button>
+        <p class="eyebrow">PERMANENT ACTION</p>
+        <h2 id="delete-event-title">DELETE COLLECTION?</h2>
+        <p class="modal-subtext">
+          <strong id="delete-event-name">This collection</strong>, its uploaded
+          media, face embeddings, and shared access will be permanently removed.
+        </p>
+        <div class="modal-actions delete-event-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            id="delete-event-cancel-btn"
+          >
+            KEEP COLLECTION
+          </button>
+          <button
+            type="button"
+            class="danger-button"
+            id="delete-event-confirm-btn"
+          >
+            DELETE PERMANENTLY
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8. Media Lightbox & Custom Video Player -->
+    <div class="lightbox-backdrop hidden" id="lightbox">
+      <div class="lightbox-toolbar">
+        <span class="lightbox-counter" id="lightbox-counter">1 / 10</span>
+        <div class="lightbox-tools">
+          <a
+            class="lightbox-btn"
+            id="lightbox-download-btn"
+            download
+            title="Download media"
+            >⬇</a
+          >
+          <button
+            class="lightbox-btn"
+            id="lightbox-close-btn"
+            title="Close (Esc)"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <button
+        class="lightbox-nav-btn prev"
+        id="lightbox-prev-btn"
+        title="Previous (←)"
+      >
+        ‹
+      </button>
+      <button
+        class="lightbox-nav-btn next"
+        id="lightbox-next-btn"
+        title="Next (→)"
+      >
+        ›
+      </button>
+
+      <div class="lightbox-content" id="lightbox-content">
+        <!-- Active image or video injected dynamically -->
+      </div>
+    </div>
+
+    <!-- Find My Photos flow -->
+    <div
+      class="modal-backdrop hidden"
+      id="find-photos-modal"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-card find-photos-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="find-photos-title"
+      >
+        <button class="modal-close" id="find-photos-close" aria-label="Close">
+          ×
+        </button>
+        <div class="find-photos-progress" aria-hidden="true">
+          <span class="active"></span><span></span><span></span><span></span>
+        </div>
+        <p class="eyebrow">
+          <span class="label-line"></span>PRIVATE MEMORY SEARCH
+        </p>
+        <h2 id="find-photos-title">FIND MY PHOTOS</h2>
+        <p class="modal-subtext" id="find-photos-subtitle">
+          Choose the event where your memories were captured.
+        </p>
+        <section class="find-step" id="find-event-step">
+          <div class="find-events" id="find-events-list" aria-live="polite">
+            <div class="find-state-message">Loading available events…</div>
+          </div>
+
+          <div class="find-step-actions">
+            <button
+              class="primary-button full"
+              id="find-event-continue"
+              disabled
+              type="button"
+            >
+              CONTINUE <span>→</span>
+            </button>
+          </div>
+
+          <div class="find-access-divider">
+            <span>OR</span>
+          </div>
+
+          <div class="find-access-code">
+            <p class="eyebrow">HAVE AN EVENT CODE?</p>
+
+            <div class="input-wrapper large">
+              <input
+                type="text"
+                id="find-access-code-input"
+                placeholder="Enter event access code"
+                maxlength="9"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+
+            <button
+              type="button"
+              class="secondary-button full"
+              id="find-access-code-btn"
+            >
+              GET EVENT ACCESS <span>→</span>
+            </button>
+
+            <div
+              class="find-validation hidden"
+              id="find-access-code-message"
+              role="alert"
+            ></div>
+          </div>
+        </section>
+        <section class="find-step hidden" id="find-upload-step">
+          <div
+            class="face-upload-zone"
+            id="face-upload-zone"
+            tabindex="0"
+            role="button"
+            aria-label="Choose face photos"
+          >
+            <input
+              type="file"
+              id="face-photo-input"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              hidden
+            />
+            <div class="face-upload-placeholder" id="face-upload-placeholder">
+              <span class="face-upload-icon">◎</span
+              ><strong>UPLOAD ONE OR MORE CLEAR FACE PHOTOS</strong
+              ><small>JPG, JPEG, PNG or WEBP · up to 10 MB each</small
+              ><button
+                class="secondary-button"
+                id="face-browse-btn"
+                type="button"
+              >
+                BROWSE PHOTOS
+              </button>
+            </div>
+          </div>
+          <div
+            class="selected-files-container hidden"
+            id="face-selected-container"
+          >
+            <div class="selected-files-header">
+              <span id="face-selected-count">0 photos selected</span>
+              <button type="button" class="clear-all-btn" id="face-clear-btn">
+                Clear all
+              </button>
+            </div>
+            <div class="files-preview-grid" id="face-preview-grid"></div>
+            <button
+              type="button"
+              class="text-button face-add-more-btn"
+              id="face-add-more-btn"
+            >
+              + ADD ANOTHER PHOTO
+            </button>
+          </div>
+          <div
+            class="find-validation hidden"
+            id="face-validation"
+            role="alert"
+          ></div>
+          <div class="find-step-actions">
+            <button class="text-button" id="face-back-btn" type="button">
+              ← BACK</button
+            ><button
+              class="primary-button"
+              id="scan-photos-btn"
+              type="button"
+              disabled
+            >
+              SCAN &amp; FIND MY PHOTOS <span>→</span>
+            </button>
+          </div>
+        </section>
+        <section
+          class="find-step hidden"
+          id="find-processing-step"
+          aria-live="polite"
+        >
+          <div class="scan-orbit"><span></span><span></span><span></span></div>
+          <div class="scan-status" id="scan-status">Preparing your photo…</div>
+          <div class="scan-status-detail" id="scan-status-detail">
+            Your image stays attached to this search only.
+          </div>
+        </section>
+        <section class="find-step hidden" id="find-results-step">
+          <div class="find-results-heading">
+            <span class="eyebrow">YOUR MEMORIES</span>
+            <h3 id="find-results-title">We found your photos.</h3>
+            <p id="find-results-count"></p>
+          </div>
+          <div class="matched-photo-grid" id="matched-photo-grid"></div>
+          <div class="find-state-message hidden" id="find-results-empty"></div>
+          <div class="find-step-actions">
+            <button class="secondary-button" id="find-again-btn" type="button">
+              SCAN ANOTHER PHOTO</button
+            ><button
+              class="primary-button"
+              id="find-results-close-btn"
+              type="button"
+            >
+              DONE <span>→</span>
+            </button>
+          </div>
+        </section>
+        <section
+          class="find-step hidden"
+          id="find-error-step"
+          aria-live="polite"
+        >
+          <div class="scan-error-mark">!</div>
+          <h3 id="find-error-title">WE COULDN’T COMPLETE THE SEARCH</h3>
+          <p class="modal-subtext" id="find-error-message">Please try again.</p>
+          <div class="find-step-actions">
+            <button
+              class="secondary-button"
+              id="find-error-back-btn"
+              type="button"
+            >
+              BACK</button
+            ><button class="primary-button" id="find-retry-btn" type="button">
+              TRY AGAIN <span>→</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="lenis.min.js"></script>
+    <script src="api.js"></script>
+    <script src="main.js"></script>
   </body>
 </html>
