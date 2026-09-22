@@ -24,7 +24,8 @@
     <!-- Fixed Navbar -->
     <nav class="nav" id="main-nav">
       <div class="brand" id="nav-brand">MEMORY<span>VERSE</span></div>
-      <div class="nav-menu">
+      <button class="mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="primary-navigation"><span></span><span></span><span></span></button>
+      <div class="nav-menu" id="primary-navigation">
         <a href="#section-intro" class="nav-link-item" id="nav-link-intro"
           >DISCOVERY</a
         >
@@ -49,6 +50,7 @@
         <a href="#section-privacy" class="nav-link-item" id="nav-link-privacy"
           >PRIVACY</a
         >
+        <button class="nav-link-item mobile-find-link" id="mobile-find-photos-btn" type="button">FIND MY PHOTOS</button>
       </div>
       <div class="nav-actions">
         <button class="nav-btn nav-link" id="nav-find-photos-btn">
@@ -124,7 +126,7 @@
             </h2>
           </div>
           <p class="word-reveal-text" id="intro-word-reveal">
-            Photo Finder gives your photos and videos a smarter way to be
+            MemoryVerse gives your event photos a smarter way to be
             discovered, shared, and experienced.
           </p>
 
@@ -133,8 +135,8 @@
             <div class="pillar-item active" data-pillar="0">
               <span class="pillar-word">FIND</span>
               <span class="pillar-desc"
-                >Pinpoint specific moments instantly with semantic search
-                without tedious scrolling.</span
+                >Find your moments with private AI face matching instead of
+                tedious scrolling.</span
               >
             </div>
             <div class="pillar-separator">/</div>
@@ -149,8 +151,8 @@
             <div class="pillar-item" data-pillar="2">
               <span class="pillar-word">EXPERIENCE</span>
               <span class="pillar-desc"
-                >Relive memories in cinematic fullscreen fidelity with lossless
-                4K playback.</span
+                >Relive your event memories in a cinematic fullscreen
+                gallery.</span
               >
             </div>
           </div>
@@ -240,7 +242,7 @@
                 <div class="file-icon">📸</div>
                 <div class="file-info">
                   <span class="file-name">IMG_2841_PARIS.JPG</span>
-                  <span class="file-size">14.2 MB · RAW EXIF</span>
+                  <span class="file-size">14.2 MB · READY TO PROCESS</span>
                 </div>
                 <div class="file-status">100% ✓</div>
               </div>
@@ -249,7 +251,7 @@
                 <div class="file-icon">🎥</div>
                 <div class="file-info">
                   <span class="file-name">VIDEO_019_EIFFEL_NIGHT.MP4</span>
-                  <span class="file-size">84.6 MB · 4K 60FPS</span>
+                  <span class="file-size">8.4 MB · READY TO PROCESS</span>
                 </div>
                 <div class="file-status">100% ✓</div>
               </div>
@@ -258,7 +260,7 @@
                 <div class="file-icon">📸</div>
                 <div class="file-info">
                   <span class="file-name">IMG_2847_LOUVRE.JPG</span>
-                  <span class="file-size">18.1 MB · RAW EXIF</span>
+                  <span class="file-size">18.1 MB · READY TO PROCESS</span>
                 </div>
                 <div class="file-status">100% ✓</div>
               </div>
@@ -345,8 +347,8 @@
             </h2>
           </div>
           <p class="section-subheading">
-            Natural language visual search that understands the contents of
-            every photo.
+            Private AI face matching that helps you find your memories in an
+            event.
           </p>
 
           <!-- Dynamic Typewriter Search Bar -->
@@ -415,19 +417,19 @@
           <div class="editorial-feature-list" id="editorial-features">
             <div
               class="editorial-row"
-              data-preview="Smart semantic indexing across millions of visual elements."
+              data-preview="AI face matching with real confidence results."
             >
               <span class="row-number">01</span>
-              <span class="row-title">SMART SEARCH</span>
-              <span class="row-tag">AI Indexing</span>
+              <span class="row-title">AI PHOTO MATCHING</span>
+              <span class="row-tag">MATCH CONFIDENCE</span>
             </div>
             <div
               class="editorial-row"
-              data-preview="Isolated storage encrypted and protected with individual access keys."
+              data-preview="Private storage with authorized event access."
             >
               <span class="row-number">02</span>
               <span class="row-title">PRIVATE COLLECTIONS</span>
-              <span class="row-tag">Encrypted Vault</span>
+              <span class="row-tag">AUTHORIZED ACCESS</span>
             </div>
             <div
               class="editorial-row"
@@ -435,15 +437,15 @@
             >
               <span class="row-number">03</span>
               <span class="row-title">EASY SHARING</span>
-              <span class="row-tag">Zero Account</span>
+              <span class="row-tag">QR EVENT ACCESS</span>
             </div>
             <div
               class="editorial-row"
-              data-preview="Unified timeline for both ultra-high-resolution RAW photos and 4K video."
+              data-preview="Photo uploads with visible AI processing status."
             >
               <span class="row-number">04</span>
-              <span class="row-title">PHOTOS + VIDEOS</span>
-              <span class="row-tag">Lossless Media</span>
+              <span class="row-title">EVENT PHOTOS</span>
+              <span class="row-tag">PROCESSING STATUS</span>
             </div>
             <div
               class="editorial-row"
@@ -455,11 +457,11 @@
             </div>
             <div
               class="editorial-row"
-              data-preview="Zero lag, instantaneous frame seeking and one-click bulk downloading."
+              data-preview="Best Matches, Best Memories, and secure bulk downloads."
             >
               <span class="row-number">06</span>
-              <span class="row-title">FAST DISCOVERY</span>
-              <span class="row-tag">Sub-second Seek</span>
+              <span class="row-title">BEST MEMORIES</span>
+              <span class="row-tag">SMART FILTERS</span>
             </div>
           </div>
         </div>
@@ -489,14 +491,13 @@
               <span class="story-badge" id="story-badge"
                 >EXPEDITION & EXPLORATION</span
               >
-              <h3 id="story-title">Uncompressed Road Trips & Scenic Flights</h3>
+              <h3 id="story-title">Road Trips & Scenic Flights</h3>
               <p id="story-desc">
-                Share breathtaking 4K travel clips and high-res RAW photos with
-                travel companions without WhatsApp compression or social media
-                ads.
+                Share an event code and let travel companions find their own
+                photos with private face matching.
               </p>
               <div class="story-stats">
-                <span>✈️ 100% Original Resolution</span>
+                <span>✈️ Private event memories</span>
                 <span>🔒 Direct Code PX7K-29QM</span>
               </div>
             </div>
@@ -797,7 +798,7 @@
             <p class="eyebrow">DASHBOARD</p>
             <h1>YOUR MEMORIES</h1>
             <p class="dashboard-sub">
-              Upload photos and videos and share them with a private access
+              Upload event photos and share them with a private access
               code.
             </p>
           </div>
@@ -822,10 +823,19 @@
           <div class="empty-state hidden" id="collections-empty">
             <div class="empty-icon">📁</div>
             <h3>NO MEMORIES YET</h3>
-            <p>Upload photos or videos to start building this collection.</p>
+            <p>Upload event photos to start building this collection.</p>
             <button class="primary-button" id="empty-create-btn">
               CREATE NEW COLLECTION
             </button>
+          </div>
+        </div>
+
+        <div class="collections-section loved-section hidden" id="loved-section">
+          <div class="section-title-row">
+            <h2>LOVED MEMORIES</h2>
+          </div>
+          <div class="collections-grid" id="loved-collections-grid">
+            <!-- Populated dynamically via JS -->
           </div>
         </div>
       </div>
@@ -950,7 +960,7 @@
           <div class="gallery-title-group">
             <h2 id="gallery-title">PARIS TRIP — 2026</h2>
             <span class="gallery-meta" id="gallery-stats"
-              >24 photos · 3 videos</span
+              >24 event photos</span
             >
           </div>
           <div
@@ -959,6 +969,15 @@
             title="Click to copy code"
           >
             <span>CODE:</span> <strong id="gallery-code-text">PX7K-29QM</strong>
+          </div>
+
+          <div class="gallery-actions" aria-label="Collection actions">
+            <input type="file" id="gallery-add-files" accept="image/jpeg,image/png,image/webp" multiple hidden />
+            <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-add-btn">+ ADD PHOTOS</button>
+            <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-qr-btn">▣ QR CODE</button>
+            <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-analytics-btn">INSIGHTS</button>
+            <button type="button" class="secondary-button" id="gallery-love-all-btn" aria-label="Love all photos">♥ LOVE ALL</button>
+            <button type="button" class="secondary-button" id="gallery-download-all-btn">↓ DOWNLOAD ALL</button>
           </div>
         </div>
       </div>
@@ -969,8 +988,18 @@
         </div>
         <div class="gallery-empty hidden" id="gallery-empty">
           <h3>NO MEMORIES YET</h3>
-          <p>This collection does not contain any photos or videos yet.</p>
+          <p>This collection does not contain any event photos yet.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Individual-photo deletion confirmation -->
+    <div class="modal-backdrop hidden" id="delete-photo-modal" aria-hidden="true">
+      <div class="modal-card delete-event-modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-photo-title">
+        <button class="modal-close" id="delete-photo-close" aria-label="Close">×</button>
+        <p class="eyebrow">PERMANENT ACTION</p><h2 id="delete-photo-title">DELETE PHOTO?</h2>
+        <p class="modal-subtext">This photo, its private storage object, and associated data will be permanently removed.</p>
+        <div class="modal-actions delete-event-actions"><button type="button" class="secondary-button" id="delete-photo-cancel-btn">KEEP PHOTO</button><button type="button" class="danger-button" id="delete-photo-confirm-btn">DELETE PHOTO</button></div>
       </div>
     </div>
 
@@ -996,12 +1025,14 @@
       <div class="lightbox-toolbar">
         <span class="lightbox-counter" id="lightbox-counter">1 / 10</span>
         <div class="lightbox-tools">
-          <a
+          <button
+            type="button"
             class="lightbox-btn"
             id="lightbox-download-btn"
-            download
             title="Download media"
-            >⬇</a
+            >⬇</button
+          >
+          <button type="button" class="lightbox-btn" id="lightbox-love-btn" title="Love photo" aria-label="Love photo">♡</button>
           >
           <button
             class="lightbox-btn"
@@ -1190,6 +1221,7 @@
             <p id="find-results-count"></p>
           </div>
           <div class="matched-photo-grid" id="matched-photo-grid"></div>
+          <div class="save-loved-panel" id="save-loved-panel"><div><strong id="find-loved-count">0 photos loved</strong><small>Save only the memories you selected to a private named collection.</small></div><div class="save-loved-actions"><button class="secondary-button" type="button" id="find-love-all-btn">♥ LOVE ALL</button><button class="primary-button" type="button" id="save-loved-btn" disabled>SAVE TO MY DASHBOARD <span>♥</span></button></div></div>
           <div class="find-state-message hidden" id="find-results-empty"></div>
           <div class="find-step-actions">
             <button class="secondary-button" id="find-again-btn" type="button">
@@ -1226,11 +1258,30 @@
       </div>
     </div>
 
+    <div class="modal-backdrop hidden" id="loved-collection-modal" aria-hidden="true"><div class="modal-card loved-name-modal" role="dialog" aria-modal="true"><button class="modal-close" id="loved-collection-close" type="button" aria-label="Close">×</button><p class="eyebrow">YOUR PRIVATE MEMORIES</p><h2>NAME YOUR COLLECTION</h2><p class="modal-subtext" id="loved-collection-message">Give your loved photos a name.</p><div class="input-wrapper large"><input id="loved-collection-name" maxlength="80" placeholder="College Fest Memories" /></div><p class="find-validation hidden" id="loved-collection-error"></p><div class="modal-actions"><button class="secondary-button" type="button" id="loved-collection-cancel">CANCEL</button><button class="primary-button" type="button" id="loved-collection-save">SAVE COLLECTION</button></div></div></div>
+
+    <div class="modal-backdrop hidden" id="delete-loved-collection-modal" aria-hidden="true">
+      <div class="modal-card delete-event-modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-loved-collection-title">
+        <button class="modal-close" id="delete-loved-collection-close" type="button" aria-label="Close">×</button>
+        <p class="eyebrow">PRIVATE COLLECTION</p>
+        <h2 id="delete-loved-collection-title">DELETE LOVED COLLECTION?</h2>
+        <p class="modal-subtext">
+          <strong id="delete-loved-collection-name">This loved collection</strong> and its saved-photo list will be removed from your dashboard.
+          The original event and original event photos will not be deleted.
+        </p>
+        <div class="modal-actions delete-event-actions">
+          <button type="button" class="secondary-button" id="delete-loved-collection-cancel">KEEP COLLECTION</button>
+          <button type="button" class="danger-button" id="delete-loved-collection-confirm">DELETE COLLECTION</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Scripts -->
     <script src="lenis.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" referrerpolicy="no-referrer"></script>
     <script src="api.js"></script>
     <script src="main.js"></script>
   </body>

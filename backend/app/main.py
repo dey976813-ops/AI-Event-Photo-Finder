@@ -6,11 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.routes import auth, events, match, photos
+from app.routes import auth, events, loved_collections, match, photos
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="MemoryVerse Backend")
-app.add_middleware(CORSMiddleware, allow_origins=get_settings().allowed_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_origin_regex=settings.cors_origin_regex or None,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(HTTPException)
@@ -33,3 +41,4 @@ app.include_router(events.router)
 app.include_router(photos.router)
 app.include_router(match.router)
 app.include_router(auth.router)
+app.include_router(loved_collections.router)

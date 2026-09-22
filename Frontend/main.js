@@ -170,10 +170,18 @@ function formatEventAccessCode(value) {
   }
 
   function handleResize() {
+    // Keep the CSS box in device-independent pixels while the backing store
+    // tracks the display density. This avoids stretching a low-resolution
+    // canvas during mobile browser-chrome/orientation resizes.
+    const viewport = window.visualViewport;
+    const displayWidth = Math.round(viewport?.width || window.innerWidth);
+    const displayHeight = Math.round(viewport?.height || window.innerHeight);
     dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvasWidth = window.innerWidth * dpr;
-    canvasHeight = window.innerHeight * dpr;
+    canvasWidth = Math.max(1, Math.round(displayWidth * dpr));
+    canvasHeight = Math.max(1, Math.round(displayHeight * dpr));
 
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
@@ -181,6 +189,8 @@ function formatEventAccessCode(value) {
   }
 
   window.addEventListener("resize", handleResize, { passive: true });
+  window.visualViewport?.addEventListener("resize", handleResize, { passive: true });
+  window.addEventListener("orientationchange", handleResize, { passive: true });
   handleResize();
 
   function preloadImages() {
@@ -386,7 +396,7 @@ function formatEventAccessCode(value) {
   // inconsistent URL.
   const API_ORIGIN =
     (window.PhotoFinderApi && window.PhotoFinderApi.API_BASE_URL) ||
-    "http://localhost:5000";
+    `${window.location.protocol === "https:" ? "https:" : "http:"}//${window.location.hostname}:5000`;
 
   let currentUser = null;
   let authToken = localStorage.getItem("pf_token") || null;
@@ -398,6 +408,27 @@ function formatEventAccessCode(value) {
   const navDashboardBtn = document.getElementById("nav-dashboard-btn");
   const navLogoutBtn = document.getElementById("nav-logout-btn");
   const navBrand = document.getElementById("nav-brand");
+  const mainNav = document.getElementById("main-nav");
+  const mobileNavToggle = document.getElementById("mobile-nav-toggle");
+
+  function closeMobileNav() {
+    mainNav?.classList.remove("menu-open");
+    mobileNavToggle?.setAttribute("aria-expanded", "false");
+    mobileNavToggle?.setAttribute("aria-label", "Open navigation");
+  }
+
+  mobileNavToggle?.addEventListener("click", () => {
+    const open = mainNav?.classList.toggle("menu-open");
+    mobileNavToggle.setAttribute("aria-expanded", String(Boolean(open)));
+    mobileNavToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+  });
+  document.getElementById("mobile-find-photos-btn")?.addEventListener("click", () => {
+    closeMobileNav();
+    document.getElementById("nav-find-photos-btn")?.click();
+  });
+  document.querySelectorAll(".nav-menu a").forEach((link) =>
+    link.addEventListener("click", closeMobileNav),
+  );
 
   function updateAuthUI() {
     if (authToken && currentUser) {
@@ -417,7 +448,8 @@ function formatEventAccessCode(value) {
   // ROOT CAUSE OF THE LOGIN BUG: `logout` was referenced in several places
   // below (the nav/dashboard logout buttons, and the 401 handlers inside
   // loadCollections() and the upload submit handler) but was never defined
-  // anywhere in this file. `navLogoutBtn?.addEventListener("click", logout)`
+  // anywhere in this file.
+navLogoutBtn?.addEventListener("click", logout);
   // runs synchronously the moment this script executes, and referencing the
   // undefined `logout` identifier there throws a ReferenceError immediately
   // on page load — before Section 7 (the real login/signup submit handlers)
@@ -542,6 +574,7 @@ function formatEventAccessCode(value) {
     uploadModal?.classList.add("hidden");
     successModal?.classList.add("hidden");
     deleteEventModal?.classList.add("hidden");
+    document.getElementById("delete-photo-modal")?.classList.add("hidden");
     window.PFOverlayLock.remove("basicModal");
   }
 
@@ -771,38 +804,38 @@ function formatEventAccessCode(value) {
   const storyData = {
     travel: {
       badge: "EXPEDITION & EXPLORATION",
-      title: "Uncompressed Road Trips & Scenic Flights",
-      desc: "Share breathtaking 4K travel clips and high-res RAW photos with travel companions without WhatsApp compression or social media ads.",
-      stat1: "✈️ 100% Original Resolution",
+      title: "Road Trips & Scenic Flights",
+      desc: "Share an event code and let travel companions find their own photos with private face matching.",
+      stat1: "✈️ Private event memories",
       stat2: "🔒 Direct Code PX7K-29QM",
     },
     weddings: {
       badge: "CEREMONIES & CELEBRATIONS",
       title: "Collect Every Angle From Every Guest",
-      desc: "Place stylish QR cards on reception tables. Guests enter one code to upload their spontaneous phone memories and view the official album.",
-      stat1: "💍 Zero App Download",
-      stat2: "✨ Instant Unified Gallery",
+      desc: "Place QR cards on reception tables. Guests can securely open the event and use Find My Photos.",
+      stat1: "💍 QR event access",
+      stat2: "✨ Private photo matching",
     },
     events: {
       badge: "FESTIVALS & CONFERENCES",
       title: "Live Event Photo Hubs",
-      desc: "Instant media distribution for brand activations, concerts, and galas with rapid sub-second access.",
-      stat1: "🎉 Real-Time Ingestion",
-      stat2: "⚡ Lossless 4K Streaming",
+      desc: "Create a private event gallery, track photo processing, and let attendees find their memories.",
+      stat1: "🎉 Processing status",
+      stat2: "⚡ Secure downloads",
     },
     family: {
       badge: "HERITAGE & GENERATIONS",
       title: "Preserve Milestones In High Definition",
       desc: "Safe from algorithmic feeds and public advertising. A quiet, private haven for family memories.",
       stat1: "🛡️ Private by Design",
-      stat2: "📸 Full Exif Metadata",
+      stat2: "📸 Loved collections",
     },
     creators: {
       badge: "PROFESSIONAL PROOFING",
-      title: "Deliver Sleek Client Proofing Galleries",
-      desc: "Impress photography clients with a branded private viewing portal and seamless one-click downloads.",
-      stat1: "💎 Fast Lossless Delivery",
-      stat2: "🚀 Zero Compression Loss",
+      title: "Deliver Private Event Galleries",
+      desc: "Create a branded event space with QR access, private downloads, and shareable loved collections.",
+      stat1: "💎 Collection sharing",
+      stat2: "🚀 Event analytics",
     },
   };
 
@@ -978,6 +1011,7 @@ function formatEventAccessCode(value) {
           closeAllModals();
           openDashboard();
           showToast(`Welcome back, ${currentUser.name}`);
+          if (new URLSearchParams(window.location.search).get("eventCode")) setTimeout(() => document.getElementById("hero-find-photos-btn")?.click(), 0);
         } else {
           authErrorMsg.textContent = data.error || "Invalid email or password";
           authErrorMsg.classList.remove("hidden");
@@ -1032,6 +1066,7 @@ function formatEventAccessCode(value) {
           closeAllModals();
           openDashboard();
           showToast(`Account created! Welcome, ${currentUser.name}`);
+          if (new URLSearchParams(window.location.search).get("eventCode")) setTimeout(() => document.getElementById("hero-find-photos-btn")?.click(), 0);
         } else {
           authErrorMsg.textContent = data.error || "Failed to create account";
           authErrorMsg.classList.remove("hidden");
@@ -1077,6 +1112,7 @@ function formatEventAccessCode(value) {
 
       renderCollections(events);
       void hydrateDashboardMedia(events);
+      void loadLovedCollections(events);
     } catch (error) {
       console.error("Error fetching events:", error);
 
@@ -1315,6 +1351,8 @@ function formatEventAccessCode(value) {
       : eventMediaCache.get(collection.id)?.media;
 
     openGallery({
+      id: collection.id,
+      ownerId: collection.ownerId,
       name: collection.name,
       accessCode: collection.accessCode,
       photosCount: collection.photosCount,
@@ -1329,6 +1367,8 @@ function formatEventAccessCode(value) {
       const media = await getCachedEventMedia(collection.id);
       const summary = mediaSummary(media);
       openGallery({
+        id: collection.id,
+        ownerId: collection.ownerId,
         name: collection.name,
         accessCode: collection.accessCode,
         photosCount: summary.photos,
@@ -1338,6 +1378,8 @@ function formatEventAccessCode(value) {
     } catch (error) {
       console.warn("Failed to load event photos:", error);
       openGallery({
+        id: collection.id,
+        ownerId: collection.ownerId,
         ...collection,
         media: [],
         loading: false,
@@ -1625,9 +1667,71 @@ function formatEventAccessCode(value) {
 
   // ==================== 10. PRIVATE COLLECTION GALLERY ====================
   let currentGalleryMedia = [];
+  let currentGalleryEvent = null;
+
+  function saveBrowserDownload(file) {
+    const url = URL.createObjectURL(file.blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = file.filename; link.rel = "noopener";
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  async function loadLovedCollections(events) {
+    const grid = document.getElementById("loved-collections-grid");
+    const section = document.getElementById("loved-section");
+    if (!grid || !section) return;
+    try {
+      const response = await window.PhotoFinderApi.getNamedLovedCollections();
+      const loved = response?.collections || [];
+      section.classList.toggle("hidden", loved.length === 0);
+      grid.innerHTML = "";
+      loved.forEach((collection) => {
+        const card = document.createElement("article");
+        card.className = "collection-card loved-card";
+        card.dataset.lovedCollectionId = collection.id;
+        const photos = (collection.photos || []).slice(0, 4);
+        const previews = photos.length
+          ? photos.map((photo, index) => `<img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.filename || `Saved memory ${index + 1}`)}" loading="lazy">`).join("")
+          : '<div class="loved-card-empty-preview" aria-hidden="true">♥</div>';
+        card.innerHTML = `<div class="loved-card-previews">${previews}<span class="loved-card-photo-count">${collection.count} ${collection.count === 1 ? "PHOTO" : "PHOTOS"}</span></div><div class="loved-card-content"><p class="loved-card-kicker">PRIVATE COLLECTION</p><h3 class="loved-card-title">${escapeHtml(collection.name)}</h3><p class="loved-card-meta">${collection.count} saved memor${collection.count === 1 ? "y" : "ies"}</p><div class="loved-card-actions"><button type="button" class="primary-button view-btn">VIEW COLLECTION</button><button type="button" class="secondary-button download-loved-btn">↓ DOWNLOAD</button><button type="button" class="loved-delete-btn" title="Delete entire loved collection">DELETE COLLECTION</button></div></div>`;
+        card.querySelector(".loved-card-actions").insertAdjacentHTML("beforeend", '<button type="button" class="secondary-button share-loved-btn">SHARE</button>');
+        card.querySelector(".view-btn").addEventListener("click", () => window.LovedCollectionView?.open(collection));
+        card.querySelector(".download-loved-btn").addEventListener("click", async () => { try { saveBrowserDownload(await window.PhotoFinderApi.downloadLovedCollection(collection.id)); } catch (error) { showToast(error?.message || "Could not prepare collection download."); } });
+        card.querySelector(".share-loved-btn").addEventListener("click", () => window.openCollectionShare?.(collection));
+        card.querySelector(".loved-delete-btn").addEventListener("click", (event) => { event.stopPropagation(); window.LovedCollectionDeletion?.open(collection, card); });
+        grid.appendChild(card);
+      });
+    } catch (error) { console.warn("Could not load loved collections", error); }
+  }
+
+  function waitForProcessing(eventId) {
+    let attempts = 0;
+    const poll = async () => {
+      if (currentGalleryEvent?.id !== eventId || attempts++ >= 20) return;
+      await refreshCurrentGallery();
+      if (currentGalleryMedia.some((photo) => ["pending", "processing"].includes(photo.processing_status))) {
+        setTimeout(poll, 1500);
+      }
+    };
+    setTimeout(poll, 800);
+  }
+  async function refreshCurrentGallery() {
+    if (!currentGalleryEvent?.id) return;
+    eventMediaCache.delete(currentGalleryEvent.id);
+    const media = await getCachedEventMedia(currentGalleryEvent.id);
+    openGallery({ ...currentGalleryEvent, media, photosCount: media.length, videosCount: 0 });
+    void loadCollections();
+  }
 
   function openGallery(collection) {
     currentGalleryMedia = collection.media || [];
+    currentGalleryEvent = { ...collection };
+    window.currentGalleryEvent = currentGalleryEvent;
+    const isOwner = Boolean(collection.ownerId && collection.ownerId === currentUser?.id);
+    document.getElementById("gallery-add-btn")?.classList.toggle("hidden", !isOwner);
+    document.getElementById("gallery-qr-btn")?.classList.toggle("hidden", !isOwner);
+    document.getElementById("gallery-analytics-btn")?.classList.toggle("hidden", !isOwner);
     document.getElementById("gallery-title").textContent = collection.name;
     const photos = collection.photosCount ?? 0;
     const videos = collection.videosCount ?? 0;
@@ -1671,7 +1775,7 @@ function formatEventAccessCode(value) {
             <video src="${item.url}" preload="metadata" muted playsinline></video>
             <div class="item-badge">▶ VIDEO</div>
             <div class="gallery-item-overlay">
-              <span class="gallery-item-name">${item.filename}</span>
+              <span class="gallery-item-name">${item.filename}</span>${item.processing_status ? `<span class="item-badge processing-${item.processing_status}">${item.processing_status.toUpperCase()}</span>` : ""}${isOwner && item.duplicate_of ? `<span class="item-badge duplicate-badge">DUPLICATE</span>` : ""}
             </div>
           `;
           // Play preview on hover
@@ -1685,10 +1789,35 @@ function formatEventAccessCode(value) {
           el.innerHTML = `
             <img src="${item.url}" alt="${item.filename}" loading="lazy" />
             <div class="gallery-item-overlay">
-              <span class="gallery-item-name">${item.filename}</span>
+              <span class="gallery-item-name">${item.filename}</span>${item.processing_status ? `<span class="item-badge processing-${item.processing_status}">${item.processing_status.toUpperCase()}</span>` : ""}${isOwner && item.duplicate_of ? `<span class="item-badge duplicate-badge">DUPLICATE</span>` : ""}
             </div>
           `;
         }
+
+        const actions = document.createElement("div");
+        actions.className = "photo-actions";
+        actions.innerHTML = `
+          <button type="button" class="photo-action love-action ${item.loved ? "is-loved" : ""}" aria-label="${item.loved ? "Remove love" : "Love photo"}" title="Love photo">♥</button>
+          <button type="button" class="photo-action download-action" aria-label="Download ${escapeHtml(item.filename)}" title="Download photo">↓</button>
+          ${isOwner ? '<button type="button" class="photo-action delete-action" aria-label="Delete photo" title="Delete photo">×</button>' : ""}`;
+        actions.querySelector(".love-action")?.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          const button = event.currentTarget; if (button.dataset.saving === "true") return;
+          button.dataset.saving = "true";
+          const previous = Boolean(item.loved); item.loved = !previous;
+          button.classList.toggle("is-loved", item.loved); button.setAttribute("aria-label", item.loved ? "Remove love" : "Love photo");
+          try { const result = await window.PhotoFinderApi.setPhotoFavorite(currentGalleryEvent.id, item.id, item.loved); item.loved = result.loved; }
+          catch (error) { item.loved = previous; button.classList.toggle("is-loved", previous); button.setAttribute("aria-label", previous ? "Remove love" : "Love photo"); showToast(error?.message || "Could not save your reaction."); }
+          finally { delete button.dataset.saving; }
+        });
+        actions.querySelector(".download-action")?.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          try { saveBrowserDownload(await window.PhotoFinderApi.downloadPhoto(currentGalleryEvent.id, item.id)); }
+          catch (error) { showToast(error?.message || "Could not download this photo."); }
+        });
+        actions.querySelector(".delete-action")?.addEventListener("click", (event) => { event.stopPropagation(); openDeletePhotoModal(item); });
+        if (isOwner && item.duplicate_of) { el.addEventListener("dblclick", (event) => { event.preventDefault(); event.stopPropagation(); openDeletePhotoModal(item); }); }
+        el.appendChild(actions);
 
         el.addEventListener("click", () => openLightbox(index));
         grid.appendChild(el);
@@ -1711,6 +1840,43 @@ function formatEventAccessCode(value) {
       if (!(await copyText(code))) return;
       showToast(`Code copied: ${code}`);
     });
+
+  document.getElementById("gallery-add-btn")?.addEventListener("click", () => document.getElementById("gallery-add-files")?.click());
+  document.getElementById("gallery-add-files")?.addEventListener("change", async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length || !currentGalleryEvent?.id) return;
+    try {
+      const upload = await window.PhotoFinderApi.uploadEventPhotos(currentGalleryEvent.id, files);
+      await refreshCurrentGallery();
+      const duplicateCount = upload.results.reduce((count, result) => count + (result?.data?.duplicates?.length || 0), 0);
+      showToast(`${files.length} photo${files.length === 1 ? "" : "s"} queued for AI processing.${duplicateCount ? ` ${duplicateCount} duplicate candidate${duplicateCount === 1 ? "" : "s"} found.` : ""}`);
+      waitForProcessing(currentGalleryEvent.id);
+    } catch (error) { showToast(error?.message || "Could not add photos."); }
+  });
+  document.getElementById("gallery-love-all-btn")?.addEventListener("click", async (event) => {
+    if (!currentGalleryEvent?.id) return;
+    const button = event.currentTarget; button.disabled = true;
+    try { await window.PhotoFinderApi.loveAll(currentGalleryEvent.id); currentGalleryMedia.forEach((photo) => { photo.loved = true; }); openGallery({ ...currentGalleryEvent, media: currentGalleryMedia }); showToast("Every photo is now loved."); }
+    catch (error) { showToast(error?.message || "Could not save your reactions."); } finally { button.disabled = false; }
+  });
+  document.getElementById("gallery-download-all-btn")?.addEventListener("click", async () => {
+    if (!currentGalleryEvent?.id) return;
+    try { saveBrowserDownload(await window.PhotoFinderApi.downloadAll(currentGalleryEvent.id)); showToast("Your ZIP download is ready. On mobile, choose your browser's Save option."); }
+    catch (error) { showToast(error?.message || "Could not prepare download."); }
+  });
+
+  let pendingDeletionPhoto = null;
+  function openDeletePhotoModal(photo) { pendingDeletionPhoto = photo; openModal(document.getElementById("delete-photo-modal")); }
+  function closeDeletePhotoModal() { pendingDeletionPhoto = null; closeAllModals(); }
+  document.getElementById("delete-photo-close")?.addEventListener("click", closeDeletePhotoModal);
+  document.getElementById("delete-photo-cancel-btn")?.addEventListener("click", closeDeletePhotoModal);
+  document.getElementById("delete-photo-confirm-btn")?.addEventListener("click", async (event) => {
+    if (!pendingDeletionPhoto?.id) return;
+    const button = event.currentTarget; button.disabled = true;
+    try { await window.PhotoFinderApi.deletePhoto(pendingDeletionPhoto.id); closeDeletePhotoModal(); await refreshCurrentGallery(); showToast("Photo deleted permanently."); }
+    catch (error) { showToast(error?.message || "Could not delete this photo."); } finally { button.disabled = false; }
+  });
 
   let pendingDeletionEvent = null;
 
@@ -1774,30 +1940,38 @@ function formatEventAccessCode(value) {
   const lightboxCounter = document.getElementById("lightbox-counter");
   const lightboxDownloadBtn = document.getElementById("lightbox-download-btn");
 
-  function openLightbox(index) {
-    if (!currentGalleryMedia || currentGalleryMedia.length === 0) return;
-    activeLightboxIndex = Math.max(
-      0,
-      Math.min(currentGalleryMedia.length - 1, index),
-    );
-    renderLightboxItem();
-    lightbox.classList.remove("hidden");
-  }
-
   function closeLightbox() {
     lightbox.classList.add("hidden");
+    window.PFOverlayLock?.remove("lightbox");
     const vid = lightboxContent.querySelector("video");
     if (vid) vid.pause();
     lightboxContent.innerHTML = "";
   }
 
+  let lightboxMedia = [];
+  let lightboxEvent = null;
+  const lightboxLoveBtn = document.getElementById("lightbox-love-btn");
+
+  function openLightbox(index, media = currentGalleryMedia, event = currentGalleryEvent) {
+    if (!media?.length) return;
+    lightboxMedia = media;
+    lightboxEvent = event;
+    activeLightboxIndex = Math.max(0, Math.min(media.length - 1, index));
+    renderLightboxItem();
+    lightbox.classList.remove("hidden");
+    window.PFOverlayLock?.add("lightbox");
+  }
+
   function renderLightboxItem() {
-    const item = currentGalleryMedia[activeLightboxIndex];
+    const item = lightboxMedia[activeLightboxIndex];
     if (!item) return;
 
-    lightboxCounter.textContent = `${activeLightboxIndex + 1} / ${currentGalleryMedia.length}`;
-    lightboxDownloadBtn.href = item.url;
-    lightboxDownloadBtn.setAttribute("download", item.filename);
+    lightboxCounter.textContent = `${activeLightboxIndex + 1} / ${lightboxMedia.length}`;
+    document.getElementById("lightbox-prev-btn").disabled = activeLightboxIndex === 0;
+    document.getElementById("lightbox-next-btn").disabled = activeLightboxIndex === lightboxMedia.length - 1;
+    lightboxLoveBtn?.classList.toggle("is-loved", Boolean(item.loved));
+    lightboxLoveBtn.textContent = item.loved ? "♥" : "♡";
+    lightboxLoveBtn.disabled = !lightboxEvent?.id || item.type === "video";
 
     if (item.type === "video") {
       lightboxContent.innerHTML = `
@@ -1811,11 +1985,8 @@ function formatEventAccessCode(value) {
   }
 
   function nextLightboxItem() {
-    if (activeLightboxIndex < currentGalleryMedia.length - 1) {
+    if (activeLightboxIndex < lightboxMedia.length - 1) {
       activeLightboxIndex++;
-      renderLightboxItem();
-    } else {
-      activeLightboxIndex = 0;
       renderLightboxItem();
     }
   }
@@ -1823,9 +1994,6 @@ function formatEventAccessCode(value) {
   function prevLightboxItem() {
     if (activeLightboxIndex > 0) {
       activeLightboxIndex--;
-      renderLightboxItem();
-    } else {
-      activeLightboxIndex = currentGalleryMedia.length - 1;
       renderLightboxItem();
     }
   }
@@ -1839,6 +2007,31 @@ function formatEventAccessCode(value) {
   document
     .getElementById("lightbox-prev-btn")
     ?.addEventListener("click", prevLightboxItem);
+  lightboxDownloadBtn?.addEventListener("click", async () => {
+    const item = lightboxMedia[activeLightboxIndex];
+    if (!item || !lightboxEvent?.id) return;
+    try {
+      saveBrowserDownload(await window.PhotoFinderApi.downloadPhoto(lightboxEvent.id, item.id));
+      showToast("Download started.");
+    } catch (error) {
+      showToast(error?.message || "Could not download this photo.");
+    }
+  });
+  lightboxLoveBtn?.addEventListener("click", async () => {
+    const item = lightboxMedia[activeLightboxIndex];
+    if (!item || !lightboxEvent?.id || lightboxLoveBtn.disabled) return;
+    lightboxLoveBtn.disabled = true; const previous = Boolean(item.loved); item.loved = !previous; renderLightboxItem();
+    try {
+      const result = await window.PhotoFinderApi.setPhotoFavorite(lightboxEvent.id, item.id, item.loved);
+      item.loved = result.loved;
+      renderLightboxItem();
+      showToast(item.loved ? "Added to Loved Memories." : "Removed from Loved Memories.");
+    } catch (error) { item.loved = previous; renderLightboxItem();
+      showToast(error?.message || "Could not save your reaction.");
+    } finally {
+      lightboxLoveBtn.disabled = false;
+    }
+  });
 
   lightbox?.addEventListener("click", (e) => {
     if (e.target === lightbox) closeLightbox();
@@ -1848,8 +2041,200 @@ function formatEventAccessCode(value) {
     if (!lightbox.classList.contains("hidden")) {
       if (e.key === "ArrowRight") nextLightboxItem();
       if (e.key === "ArrowLeft") prevLightboxItem();
+      if (e.key === "Escape") closeLightbox();
+      e.stopPropagation();
     }
   });
+  window.PhotoFinderLightbox = {
+    open(media, index, event) {
+      openLightbox(index, media, event);
+    },
+  };
+})();
+
+// ==================== SHARE, QR, INSIGHTS & RECIPIENT MODE ====================
+// These controls are deliberately thin clients: every privileged action is
+// still checked by the FastAPI owner/token endpoints.
+(() => {
+  const api = window.PhotoFinderApi;
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const escape = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+  const download = (file) => {
+    const url = URL.createObjectURL(file.blob);
+    const anchor = Object.assign(document.createElement("a"), { href: url, download: file.filename });
+    document.body.append(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+  async function copy(value) {
+    try { await navigator.clipboard.writeText(value); return true; }
+    catch { const input = document.createElement("textarea"); input.value = value; document.body.append(input); input.select(); const result = document.execCommand("copy"); input.remove(); return result; }
+  }
+  function modal(markup, className = "integration-modal") {
+    const overlay = document.createElement("div");
+    overlay.className = `modal-backdrop ${className}`;
+    overlay.innerHTML = `<div class="modal-card integration-card" role="dialog" aria-modal="true">${markup}</div>`;
+    const close = () => { overlay.remove(); window.PFOverlayLock?.remove(className); };
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+    document.body.append(overlay); window.PFOverlayLock?.add(className);
+    return { overlay, close };
+  }
+  function renderQr(target, text) {
+    target.innerHTML = "";
+    if (window.QRCode) new window.QRCode(target, { text, width: 220, height: 220, colorDark: "#0b1220", colorLight: "#ffffff", correctLevel: window.QRCode.CorrectLevel.M });
+    else target.textContent = "QR generator could not load. Use Copy Link instead.";
+  }
+  function openEventQr() {
+    const event = window.currentGalleryEvent || null;
+    const code = $("#gallery-code-text")?.textContent?.trim();
+    if (!event?.id || !code || code === "Code unavailable") return;
+    const link = new URL(window.location.href); link.search = ""; link.hash = ""; link.searchParams.set("eventCode", code);
+    const value = link.toString();
+    const view = modal(`<button class="modal-close" aria-label="Close">×</button><p class="eyebrow">PRIVATE EVENT ACCESS</p><h2>SCAN TO FIND YOUR PHOTOS</h2><p class="modal-subtext">This QR contains only the event access code. It never exposes storage credentials or owner access.</p><div class="qr-canvas" aria-label="Event access QR code"></div><input class="integration-link" readonly value="${escape(value)}"><div class="modal-actions"><button class="secondary-button integration-copy">COPY LINK</button><button class="primary-button integration-share">SHARE EVENT</button></div>`);
+    renderQr($(".qr-canvas", view.overlay), value);
+    $(".modal-close", view.overlay).onclick = view.close;
+    $(".integration-copy", view.overlay).onclick = async () => { if (await copy(value)) window.showToast?.("Event link copied."); };
+    $(".integration-share", view.overlay).onclick = async () => { if (navigator.share) await navigator.share({ title: "MemoryVerse event", url: value }); else if (await copy(value)) window.showToast?.("Event link copied."); };
+  }
+  async function openInsights() {
+    const event = window.currentGalleryEvent || null;
+    if (!event?.id) return;
+    const view = modal(`<button class="modal-close" aria-label="Close">×</button><p class="eyebrow">OWNER ONLY</p><h2>EVENT INSIGHTS</h2><div class="insights-body" role="status">Loading real event metrics…</div>`);
+    $(".modal-close", view.overlay).onclick = view.close;
+    try {
+      const data = await api.getEventInsights(event.id); const metrics = data?.metrics;
+      if (!metrics) throw new Error("No insights are available yet.");
+      const labels = [["Total Photos", metrics.total_photos], ["Ready", metrics.ready], ["Pending", metrics.pending], ["Processing", metrics.processing], ["Failed", metrics.failed], ["Match Searches", metrics.match_searches], ["Downloads", metrics.downloads], ["Loved Photos", metrics.loved_photos], ["Loved Collections", metrics.loved_collections]];
+      $(".insights-body", view.overlay).innerHTML = `<div class="insight-grid">${labels.map(([label, value]) => `<article><span>${escape(label)}</span><strong>${Number(value || 0)}</strong></article>`).join("")}</div>${Number(metrics.total_photos || 0) === 0 ? '<p class="modal-subtext">Photos will appear here once they are uploaded.</p>' : ""}`;
+    } catch (error) { $(".insights-body", view.overlay).innerHTML = `<p class="find-validation">${escape(error?.message || "Could not load insights.")}</p>`; }
+  }
+  window.openCollectionShare = async (collection) => {
+    const view = modal(`<button class="modal-close" aria-label="Close">×</button><p class="eyebrow">READ-ONLY SHARING</p><h2>SHARE COLLECTION</h2><p class="modal-subtext">Recipients can view and download only these saved photos. They cannot access or edit the event.</p><div class="share-status">No active link yet.</div><div class="qr-canvas hidden"></div><input class="integration-link hidden" readonly><div class="modal-actions"><button class="primary-button create-share">CREATE SHARE LINK</button><button class="secondary-button copy-share hidden">COPY LINK</button><button class="danger-button revoke-share hidden">REVOKE SHARE</button></div>`);
+    $(".modal-close", view.overlay).onclick = view.close;
+    let share = null;
+    const presentShare = (activeShare) => {
+      share = activeShare;
+      const url = new URL(window.location.href); url.search = ""; url.hash = ""; url.searchParams.set("collectionShare", share.share_token);
+      const value = url.toString(); const input = $(".integration-link", view.overlay); input.value = value; input.classList.remove("hidden");
+      $(".share-status", view.overlay).textContent = share.expires_at ? `Active until ${new Date(share.expires_at).toLocaleString()}.` : "Active read-only share link.";
+      const qr = $(".qr-canvas", view.overlay); qr.classList.remove("hidden"); renderQr(qr, value);
+      $(".create-share", view.overlay).classList.add("hidden"); $(".copy-share", view.overlay).classList.remove("hidden"); $(".revoke-share", view.overlay).classList.remove("hidden");
+    };
+    api.getCollectionShare(collection.id).then((response) => { if (response?.share) presentShare(response.share); }).catch(() => { $(".share-status", view.overlay).textContent = "Could not check existing share status. You can still create a new link."; });
+    $(".create-share", view.overlay).onclick = async (event) => {
+      const button = event.currentTarget; button.disabled = true; button.textContent = "CREATING…";
+      try {
+        const response = await api.createCollectionShare(collection.id); presentShare(response.share);
+      } catch (error) { $(".share-status", view.overlay).textContent = error?.message || "Could not create a share link."; button.disabled = false; button.textContent = "CREATE SHARE LINK"; }
+    };
+    $(".copy-share", view.overlay).onclick = async () => { if (await copy($(".integration-link", view.overlay).value)) window.showToast?.("Collection link copied."); };
+    $(".revoke-share", view.overlay).onclick = async () => { if (!share) return; try { await api.revokeCollectionShare(collection.id, share.id); $(".share-status", view.overlay).textContent = "Share revoked. The old link no longer works."; $(".integration-link", view.overlay).classList.add("hidden"); $(".qr-canvas", view.overlay).classList.add("hidden"); $(".copy-share", view.overlay).classList.add("hidden"); $(".revoke-share", view.overlay).classList.add("hidden"); $(".create-share", view.overlay).classList.remove("hidden"); share = null; } catch (error) { window.showToast?.(error?.message || "Could not revoke share."); } };
+  };
+  $("#gallery-qr-btn")?.addEventListener("click", openEventQr);
+  $("#gallery-analytics-btn")?.addEventListener("click", openInsights);
+  // Recipient route has no owner UI, auth requirement, or event id. It is a
+  // read-only view constructed solely from the share-token response.
+  const params = new URLSearchParams(window.location.search); const shareToken = params.get("collectionShare");
+  if (shareToken) {
+    document.body.classList.add("recipient-mode");
+    const root = document.createElement("main"); root.className = "shared-collection-page"; root.innerHTML = '<p class="eyebrow">SHARED LOVED MEMORIES</p><h1>Loading collection…</h1>'; document.body.append(root);
+    api.getSharedCollection(shareToken).then((payload) => {
+      const collection = payload.collection; const photos = collection.photos || [];
+      root.innerHTML = `<p class="eyebrow">SHARED LOVED MEMORIES</p><h1>${escape(collection.name)}</h1><p>${collection.count} photo${collection.count === 1 ? "" : "s"} shared with you</p><button class="secondary-button shared-download-all">↓ DOWNLOAD COLLECTION</button><div class="shared-photo-grid">${photos.map((photo, index) => `<article><img src="${escape(photo.url)}" alt="${escape(photo.filename || "Shared memory")}" loading="lazy"><button data-index="${index}">VIEW</button><button data-download="${escape(photo.id)}">↓ DOWNLOAD</button></article>`).join("") || '<p>No photos are available in this collection.</p>'}</div>`;
+      $(".shared-download-all", root).onclick = async () => { try { download(await api.downloadSharedCollection(shareToken)); } catch (error) { window.showToast?.(error?.message || "Could not prepare collection download."); } };
+      root.querySelectorAll("[data-download]").forEach((button) => button.onclick = async () => { try { download(await api.downloadSharedCollectionPhoto(shareToken, button.dataset.download)); } catch (error) { window.showToast?.(error?.message || "Could not download photo."); } });
+      root.querySelectorAll("[data-index]").forEach((button) => button.onclick = () => {
+        let index = Number(button.dataset.index);
+        const overlay = modal(`<button class="modal-close" aria-label="Close">×</button><img class="recipient-lightbox" alt="Shared memory"><p class="recipient-counter"></p><div class="modal-actions"><button class="secondary-button recipient-prev">← PREVIOUS</button><button class="secondary-button recipient-download">↓ DOWNLOAD</button><button class="secondary-button recipient-next">NEXT →</button></div>`, "recipient-lightbox-modal");
+        const render = () => { const photo = photos[index]; const image = $(".recipient-lightbox", overlay.overlay); image.src = photo.url; image.alt = photo.filename || "Shared memory"; $(".recipient-counter", overlay.overlay).textContent = `${index + 1} / ${photos.length}`; $(".recipient-prev", overlay.overlay).disabled = index === 0; $(".recipient-next", overlay.overlay).disabled = index === photos.length - 1; };
+        $(".modal-close", overlay.overlay).onclick = overlay.close;
+        $(".recipient-prev", overlay.overlay).onclick = () => { if (index > 0) { index--; render(); } };
+        $(".recipient-next", overlay.overlay).onclick = () => { if (index < photos.length - 1) { index++; render(); } };
+        $(".recipient-download", overlay.overlay).onclick = async () => download(await api.downloadSharedCollectionPhoto(shareToken, photos[index].id));
+        render();
+      });
+    }).catch((error) => { root.innerHTML = `<p class="eyebrow">SHARED LOVED MEMORIES</p><h1>Collection unavailable</h1><p>${escape(error?.message || "This link may have expired or been revoked.")}</p>`; });
+  }
+  const eventCode = params.get("eventCode");
+  if (eventCode) { const input = $("#find-access-code-input"); if (input) { input.value = eventCode; setTimeout(() => $("#hero-find-photos-btn")?.click(), 0); } }
+})();
+
+// ==================== NAMED LOVED COLLECTIONS ====================
+// Kept separate from event ownership: this UI only ever mutates the current
+// user's collection rows/memberships, never an original event photo.
+(() => {
+  const modal = document.getElementById("loved-collection-modal");
+  const nameInput = document.getElementById("loved-collection-name");
+  const error = document.getElementById("loved-collection-error");
+  const save = document.getElementById("loved-collection-save");
+  const deleteModal = document.getElementById("delete-loved-collection-modal");
+  const deleteName = document.getElementById("delete-loved-collection-name");
+  const deleteConfirm = document.getElementById("delete-loved-collection-confirm");
+  let selectedPhotos = [];
+  let pendingDeletion = null;
+  const toast = (message) => { const node = document.createElement("div"); node.className = "toast"; node.textContent = message; document.getElementById("toast-container")?.append(node); setTimeout(() => node.remove(), 3200); };
+  const close = () => { modal?.classList.add("hidden"); window.PFOverlayLock?.remove("lovedCollection"); error?.classList.add("hidden"); };
+  window.LovedCollectionComposer = {
+    open(photos) {
+      selectedPhotos = (photos || []).filter((photo) => photo?.id);
+      if (!selectedPhotos.length) return;
+      nameInput.value = "";
+      document.getElementById("loved-collection-message").textContent = `You loved ${selectedPhotos.length} photo${selectedPhotos.length === 1 ? "" : "s"}. Give this collection a name.`;
+      modal.classList.remove("hidden"); window.PFOverlayLock?.add("lovedCollection"); nameInput.focus();
+    },
+  };
+  document.getElementById("loved-collection-close")?.addEventListener("click", close);
+  document.getElementById("loved-collection-cancel")?.addEventListener("click", close);
+  save?.addEventListener("click", async () => {
+    const name = nameInput.value.trim();
+    if (!name) { error.textContent = "Please give your collection a name."; error.classList.remove("hidden"); return; }
+    save.disabled = true; save.textContent = "SAVING…";
+    try { await window.PhotoFinderApi.createLovedCollection(name, selectedPhotos); close(); toast("Loved collection saved to your dashboard."); document.getElementById("nav-dashboard-btn")?.click(); }
+    catch (exception) { error.textContent = exception?.message || "Could not save this collection."; error.classList.remove("hidden"); }
+    finally { save.disabled = false; save.textContent = "SAVE COLLECTION"; }
+  });
+  const closeDeleteCollection = () => { pendingDeletion = null; deleteModal?.classList.add("hidden"); deleteModal?.setAttribute("aria-hidden", "true"); window.PFOverlayLock?.remove("lovedCollectionDelete"); };
+  window.LovedCollectionDeletion = {
+    open(collection, card) {
+      pendingDeletion = { collection, card };
+      deleteName.textContent = collection.name;
+      deleteModal.classList.remove("hidden");
+      deleteModal.setAttribute("aria-hidden", "false");
+      window.PFOverlayLock?.add("lovedCollectionDelete");
+      deleteConfirm.focus();
+    },
+  };
+  document.getElementById("delete-loved-collection-close")?.addEventListener("click", closeDeleteCollection);
+  document.getElementById("delete-loved-collection-cancel")?.addEventListener("click", closeDeleteCollection);
+  deleteConfirm?.addEventListener("click", async () => {
+    if (!pendingDeletion) return;
+    const { collection, card } = pendingDeletion;
+    deleteConfirm.disabled = true;
+    deleteConfirm.textContent = "DELETING…";
+    try {
+      await window.PhotoFinderApi.deleteLovedCollection(collection.id);
+      card.remove();
+      const grid = document.getElementById("loved-collections-grid");
+      document.getElementById("loved-section")?.classList.toggle("hidden", !grid?.children.length);
+      closeDeleteCollection();
+      toast("Loved collection deleted. Original event photos are unchanged.");
+    } catch (exception) {
+      toast(exception?.message || "Could not delete this loved collection.");
+    } finally {
+      deleteConfirm.disabled = false;
+      deleteConfirm.textContent = "DELETE COLLECTION";
+    }
+  });
+  window.LovedCollectionView = {
+    open(collection) {
+      const panel = document.createElement("div"); panel.className = "loved-collection-view";
+      panel.innerHTML = `<div class="loved-collection-header"><button type="button" class="nav-btn nav-link">← BACK</button><div><p class="eyebrow">LOVED MEMORIES</p><h2>${escapeHtml(collection.name)}</h2><p>${collection.count} saved photo${collection.count === 1 ? "" : "s"}</p></div><button type="button" class="secondary-button collection-download">↓ DOWNLOAD COLLECTION</button></div><div class="gallery-grid"></div>`;
+      const grid = panel.querySelector(".gallery-grid");
+      (collection.photos || []).forEach((photo, index) => { const item = document.createElement("div"); item.className = "gallery-item collection-photo"; item.innerHTML = `<img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.filename || "Loved photo")}"><div class="photo-actions"><button class="photo-action download-collection-photo" type="button" title="Download photo">↓</button><button class="photo-action remove-collection-photo" type="button" title="Remove from collection">×</button></div>`; item.querySelector("img").addEventListener("click", () => window.PhotoFinderLightbox?.open(collection.photos, index, { id: photo.event_id })); item.querySelector(".download-collection-photo").addEventListener("click", async (event) => { event.stopPropagation(); try { const file = await window.PhotoFinderApi.downloadLovedCollectionPhoto(collection.id, photo.id); const url = URL.createObjectURL(file.blob); const link = Object.assign(document.createElement("a"), { href: url, download: file.filename }); document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); } catch (exception) { toast(exception?.message || "Could not download photo."); } }); item.querySelector(".remove-collection-photo").addEventListener("click", async (event) => { event.stopPropagation(); try { await window.PhotoFinderApi.removeCollectionPhoto(collection.id, photo.id); item.remove(); collection.photos = collection.photos.filter((candidate) => candidate.id !== photo.id); collection.count = collection.photos.length; panel.querySelector("p:last-child").textContent = `${collection.count} saved photo${collection.count === 1 ? "" : "s"}`; toast("Removed from collection."); } catch (exception) { toast(exception?.message || "Could not remove photo."); } }); grid.append(item); });
+      panel.querySelector(".nav-btn").addEventListener("click", () => panel.remove());
+      panel.querySelector(".collection-download").addEventListener("click", async () => { try { const file = await window.PhotoFinderApi.downloadLovedCollection(collection.id); const url = URL.createObjectURL(file.blob); const link = Object.assign(document.createElement("a"), { href: url, download: file.filename }); document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); } catch (exception) { toast(exception?.message || "Could not prepare download."); } });
+      document.body.append(panel);
+    },
+  };
 })();
 
 // ==================== FIND MY PHOTOS FLOW ====================
@@ -1859,9 +2244,47 @@ function formatEventAccessCode(value) {
 
   const api = window.PhotoFinderApi;
 
+  // Keep the quality check entirely within the existing Find My Photos UI.
+  // The selected File object is retained, so accepting it hands the exact
+  // same image to the pre-existing matching request below.
+  const qualityStep = document.createElement("section");
+  qualityStep.className = "find-step hidden";
+  qualityStep.id = "find-quality-step";
+  qualityStep.setAttribute("aria-live", "polite");
+  qualityStep.innerHTML = `
+    <div class="find-state-message" id="face-quality-loading">Checking your face photo…</div>
+    <div class="hidden" id="face-quality-result">
+      <div class="find-results-heading">
+        <span class="eyebrow">FACE PHOTO CHECK</span>
+        <h3>YOUR PHOTO IS READY</h3>
+        <p>Here’s what we found before searching the event.</p>
+      </div>
+      <div class="find-events" id="face-quality-details"></div>
+      <div class="find-step-actions">
+        <button class="secondary-button" id="face-quality-another" type="button">CHOOSE ANOTHER</button>
+        <button class="primary-button" id="face-quality-use" type="button">USE THIS PHOTO <span>→</span></button>
+      </div>
+    </div>`;
+  document.getElementById("find-upload-step")?.after(qualityStep);
+  const resultsGrid = document.getElementById("matched-photo-grid");
+  const matchControls = document.createElement("div");
+  matchControls.id = "find-match-controls";
+  matchControls.className = "find-step-actions";
+  matchControls.innerHTML = `
+    <div class="find-events" aria-label="Match filters">
+      <button class="secondary-button" type="button" data-match-filter="all">ALL MATCHES</button>
+      <button class="secondary-button" type="button" data-match-filter="best">BEST MATCHES</button>
+      <button class="secondary-button" type="button" data-match-filter="high">HIGH CONFIDENCE</button>
+      <button class="secondary-button" type="button" data-match-filter="balanced">BALANCED</button>
+      <button class="secondary-button" type="button" data-match-filter="more">MORE RESULTS</button>
+    </div>
+    <button class="primary-button" id="save-best-memories-btn" type="button" disabled>SAVE BEST MEMORIES</button>`;
+  resultsGrid?.before(matchControls);
+
   const steps = {
     event: document.getElementById("find-event-step"),
     upload: document.getElementById("find-upload-step"),
+    quality: qualityStep,
     processing: document.getElementById("find-processing-step"),
     results: document.getElementById("find-results-step"),
     error: document.getElementById("find-error-step"),
@@ -1911,9 +2334,22 @@ function formatEventAccessCode(value) {
     event: null,
     files: [],
     results: [],
+    allResults: [],
+    matchFilter: "all",
+  };
+
+  // Each filter reruns /api/match with the listed backend threshold. Limits
+  // are applied after deterministic relevance ordering, never at random.
+  const MATCH_FILTERS = {
+    all: { label: "All Matches", threshold: 0.5, limit: 50, matchCount: 50, suppressDuplicates: false },
+    best: { label: "Best Matches", threshold: 0.78, limit: 25, matchCount: 50, suppressDuplicates: true },
+    high: { label: "High Confidence", threshold: 0.85, limit: 50, matchCount: 50, suppressDuplicates: true },
+    balanced: { label: "Balanced", threshold: 0.65, limit: 35, matchCount: 50, suppressDuplicates: true },
+    more: { label: "More Results", threshold: 0.5, limit: 100, matchCount: 100, suppressDuplicates: false },
   };
 
   let scanAbortController = null;
+  let qualityAbortController = null;
 
   function showStep(name) {
     Object.entries(steps).forEach(([key, element]) => {
@@ -1924,8 +2360,8 @@ function formatEventAccessCode(value) {
       name === "event"
         ? 0
         : name === "upload"
-          ? 1
-          : name === "processing"
+        ? 1
+          : name === "quality" || name === "processing"
             ? 2
             : 3;
 
@@ -1936,6 +2372,7 @@ function formatEventAccessCode(value) {
 
   function closeFlow() {
     scanAbortController?.abort();
+    qualityAbortController?.abort();
 
     modal.classList.add("hidden");
     modal.setAttribute("aria-hidden", "true");
@@ -1959,6 +2396,7 @@ function formatEventAccessCode(value) {
   }
 
   function resetUpload() {
+    qualityAbortController?.abort();
     selected.files = [];
 
     if (input) {
@@ -2158,19 +2596,13 @@ function formatEventAccessCode(value) {
 
       setAccessCodeMessage("Access granted.");
 
-      await loadEvents();
-
-      const selectedButton = eventsList.querySelector(
-        `[data-event-id="${CSS.escape(String(selected.event))}"]`,
-      );
-
-      if (selectedButton) {
-        selectedButton.click();
-      }
-
-      setTimeout(() => {
-        showStep("upload");
-      }, 250);
+      // The list returned by /api/events is deliberately owner-only. Reloading
+      // it here after a shared-code redemption replaces the chosen shared
+      // event with an empty/owner-only list and made the next match request
+      // unreliable for non-owners. Keep the already verified event id and
+      // move directly to face upload; api.js retains its code in memory and
+      // sends it as X-Event-Access-Code with the subsequent match request.
+      showStep("upload");
     } catch (error) {
       if (error?.status === 401) {
         closeFlow();
@@ -2267,23 +2699,83 @@ function formatEventAccessCode(value) {
 
     let rejectionMessage = "";
 
-    incoming.forEach((file) => {
+    const accepted = incoming.find((file) => {
       if (!VALID_FACE_TYPES.includes(file.type)) {
         rejectionMessage = "Please choose JPG, JPEG, PNG or WEBP images.";
-        return;
+        return false;
       }
 
       if (file.size > MAX_FACE_SIZE) {
         rejectionMessage = "One of your photos is over 10 MB.";
-        return;
+        return false;
       }
 
-      selected.files.push(file);
+      return true;
     });
 
     setValidation(rejectionMessage);
 
+    if (!accepted) {
+      return;
+    }
+
+    // Quality is evaluated one image at a time, which also ensures the image
+    // used by the matching flow is the one the person just approved.
+    selected.files = [accepted];
+
     renderFacePreviews();
+    checkSelectedFaceQuality(accepted);
+  }
+
+  function formatQualityValue(value, suffix = "") {
+    return value === null || value === undefined || value === ""
+      ? "Unavailable"
+      : `${value}${suffix}`;
+  }
+
+  function renderFaceQuality(result) {
+    const details = document.getElementById("face-quality-details");
+    const loading = document.getElementById("face-quality-loading");
+    const review = document.getElementById("face-quality-result");
+    if (!details || !loading || !review) return;
+
+    const dimensions = result?.image_width && result?.image_height
+      ? `${result.image_width} × ${result.image_height} px`
+      : "Unavailable";
+    const largestArea = typeof result?.largest_face_area === "number"
+      ? `${(result.largest_face_area * 100).toFixed(2)}%`
+      : "Unavailable";
+
+    details.innerHTML = [
+      ["Faces detected", formatQualityValue(result?.face_count)],
+      ["Brightness", formatQualityValue(result?.brightness)],
+      ["Image dimensions", dimensions],
+      ["Largest face area", largestArea],
+    ].map(([label, value]) => `<div class="find-event-option"><span class="find-event-copy"><strong>${label}</strong><small>${value}</small></span></div>`).join("");
+    loading.classList.add("hidden");
+    review.classList.remove("hidden");
+  }
+
+  async function checkSelectedFaceQuality(file) {
+    if (!api?.checkFaceQuality) {
+      showError("API NOT CONFIGURED", "The face quality service is not configured.");
+      return;
+    }
+
+    qualityAbortController?.abort();
+    qualityAbortController = new AbortController();
+    document.getElementById("face-quality-loading")?.classList.remove("hidden");
+    document.getElementById("face-quality-result")?.classList.add("hidden");
+    showStep("quality");
+
+    try {
+      const result = await api.checkFaceQuality(file, qualityAbortController.signal);
+      if (qualityAbortController.signal.aborted || selected.files[0] !== file) return;
+      renderFaceQuality(result);
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      showError("FACE PHOTO CHECK FAILED", friendlyErrorMessage(error));
+    }
   }
 
   function removeFaceFile(index) {
@@ -2400,68 +2892,144 @@ function formatEventAccessCode(value) {
     return message || "Unable to complete the search.";
   }
 
+  function matchSimilarity(item) {
+    const value = item?.similarity ?? item?.score;
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  function duplicateKey(item) {
+    const value = item?.duplicate_group_id ?? item?.duplicateGroupId ?? item?.duplicate_of ?? item?.duplicateOf ?? item?.duplicate_hash ?? item?.p_hash ?? item?.phash;
+    return value === null || value === undefined || value === "" ? null : String(value);
+  }
+
+  function qualityValue(item) {
+    const value = item?.quality?.score ?? item?.quality_score ?? item?.qualityScore;
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  }
+
+  function diversityKey(item) {
+    const value = item?.captured_at ?? item?.taken_at ?? item?.date ?? item?.album ?? item?.scene;
+    return value ? String(value) : null;
+  }
+
+  function rankMatches(matches, filter) {
+    const seenDuplicates = new Set();
+    return [...(matches || [])]
+      .filter((item) => {
+        const similarity = matchSimilarity(item);
+        if (similarity !== null && similarity < filter.threshold) return false;
+        const key = duplicateKey(item);
+        if (!filter.suppressDuplicates || !key) return true;
+        if (seenDuplicates.has(key)) return false;
+        seenDuplicates.add(key);
+        return true;
+      })
+      .sort((left, right) => (matchSimilarity(right) ?? -Infinity) - (matchSimilarity(left) ?? -Infinity) || qualityValue(right) - qualityValue(left))
+      .slice(0, filter.limit);
+  }
+
+  function bestMemories() {
+    const candidates = rankMatches(selected.allResults, { threshold: 0.5, limit: 50, suppressDuplicates: true });
+    const target = Math.min(25, Math.max(1, Math.ceil(candidates.length * 0.4)));
+    const selectedBest = [];
+    const usedDiversity = new Set();
+
+    // First pass keeps one strongest result from each available real diversity
+    // group; the second fills any remaining places by similarity/quality rank.
+    for (const item of candidates) {
+      const key = diversityKey(item);
+      if (key && usedDiversity.has(key)) continue;
+      selectedBest.push(item);
+      if (key) usedDiversity.add(key);
+      if (selectedBest.length === target) return selectedBest;
+    }
+    for (const item of candidates) {
+      if (selectedBest.includes(item)) continue;
+      selectedBest.push(item);
+      if (selectedBest.length === target) break;
+    }
+    return selectedBest;
+  }
+
+  function updateMatchControls() {
+    const filter = MATCH_FILTERS[selected.matchFilter] || MATCH_FILTERS.all;
+    matchControls.querySelectorAll("[data-match-filter]").forEach((button) => {
+      const active = button.dataset.matchFilter === selected.matchFilter;
+      button.disabled = active;
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const best = bestMemories();
+    const saveBest = document.getElementById("save-best-memories-btn");
+    if (saveBest) {
+      saveBest.disabled = best.length === 0;
+      saveBest.textContent = best.length ? `SAVE BEST MEMORIES (${best.length})` : "SAVE BEST MEMORIES";
+    }
+    return filter;
+  }
+
   function renderResults(payload) {
     selected.results = normalizeResults(payload);
 
     const grid = document.getElementById("matched-photo-grid");
-
     const empty = document.getElementById("find-results-empty");
-
     const title = document.getElementById("find-results-title");
-
     const count = document.getElementById("find-results-count");
+    const filter = MATCH_FILTERS[selected.matchFilter] || MATCH_FILTERS.all;
 
     grid.innerHTML = "";
-
     if (selected.results.length) {
       title.textContent = "We found your photos.";
-
-      count.textContent = `${selected.results.length} memories matched to this event.`;
-
+      count.textContent = `${selected.results.length} ${filter.label.toLowerCase()} at the actual ${filter.threshold} matching threshold.`;
       empty.classList.add("hidden");
 
       selected.results.forEach((item) => {
         const url = item.url || item.imageUrl || item.photoUrl;
-
-        if (!url) {
-          return;
-        }
-
+        if (!url) return;
+        const similarity = matchSimilarity(item);
+        const confidence = similarity === null ? "Similarity unavailable" : `Similarity: ${String(similarity)}`;
         const button = document.createElement("button");
-
         button.type = "button";
-
-        button.innerHTML = `
-            <img
-              src="${escapeHtml(url)}"
-              alt="${escapeHtml(
-                item.filename || item.name || "Matched event photo",
-              )}"
-              loading="lazy"
-            >
-          `;
-
-        button.addEventListener("click", () => {
-          window.open(url, "_blank", "noopener");
+        button.className = `matched-photo-card ${item.loved ? "is-loved" : ""}`;
+        button.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(item.filename || item.name || "Matched event photo")}" loading="lazy"><span class="matched-confidence">${escapeHtml(confidence)}</span><span class="matched-loved-badge">${item.loved ? "♥ Loved" : "♡ Love"}</span>`;
+        button.addEventListener("click", () => window.PhotoFinderLightbox?.open(selected.results, selected.results.indexOf(item), { id: selected.event }));
+        button.querySelector(".matched-loved-badge").addEventListener("click", async (event) => {
+          event.preventDefault(); event.stopPropagation();
+          if (item._saving) return;
+          item._saving = true;
+          const previous = Boolean(item.loved); item.loved = !previous;
+          button.classList.toggle("is-loved", item.loved);
+          button.querySelector(".matched-loved-badge").textContent = item.loved ? "♥ Loved" : "♡ Love";
+          try { await api.setPhotoFavorite(selected.event, item.id, item.loved); }
+          catch (error) { item.loved = previous; button.classList.toggle("is-loved", previous); button.querySelector(".matched-loved-badge").textContent = previous ? "♥ Loved" : "♡ Love"; showToast(error?.message || "Could not save love."); }
+          finally { item._saving = false; updateLovedSavePanel(); }
         });
-
         grid.appendChild(button);
       });
     } else {
       title.textContent = "No matching photos found.";
-
       count.textContent = "";
-
-      empty.textContent =
-        "We couldn't find your memories in this event. Try another clear face photo.";
-
+      empty.textContent = "We couldn't find your memories with this matching threshold. Try More Results or another clear face photo.";
       empty.classList.remove("hidden");
     }
-
+    updateMatchControls();
     showStep("results");
+    updateLovedSavePanel();
   }
 
-  async function scan() {
+  function updateLovedSavePanel() {
+    const loved = selected.results.filter((item) => item.loved);
+    document.getElementById("find-loved-count").textContent = `${loved.length} photo${loved.length === 1 ? "" : "s"} loved`;
+    document.getElementById("save-loved-btn").disabled = loved.length === 0;
+  }
+
+  document.getElementById("save-loved-btn")?.addEventListener("click", () => window.LovedCollectionComposer?.open(selected.results.filter((item) => item.loved)));
+  document.getElementById("save-best-memories-btn")?.addEventListener("click", () => window.LovedCollectionComposer?.open(bestMemories()));
+  document.getElementById("find-love-all-btn")?.addEventListener("click", async (event) => { const button = event.currentTarget; if (!selected.results.length || button.disabled) return; button.disabled = true; const previouslyLoved = selected.results.map((item) => item.loved); selected.results.forEach((item) => { item.loved = true; }); renderResults({ photos: selected.results }); try { await api.loveSelected(selected.event, selected.results.map((item) => item.id)); button.textContent = "✓ ALL LOVED"; } catch (error) { selected.results.forEach((item, index) => { item.loved = previouslyLoved[index]; }); renderResults({ photos: selected.results }); showToast(error?.message || "Could not love all photos."); } finally { button.disabled = false; } });
+
+  async function scan(filterId = selected.matchFilter) {
+    const resolvedFilterId = MATCH_FILTERS[filterId] ? filterId : "all";
+    const filter = MATCH_FILTERS[resolvedFilterId];
+    selected.matchFilter = resolvedFilterId;
     if (!selected.event) {
       showError("SELECT AN EVENT", "Choose an event before scanning.");
       return;
@@ -2573,6 +3141,8 @@ function formatEventAccessCode(value) {
             selected.event,
             selected.files[index],
             scanAbortController.signal,
+            filter.threshold,
+            filter.matchCount,
           );
 
           mergeMatches(normalizeResults(result));
@@ -2600,8 +3170,9 @@ function formatEventAccessCode(value) {
         return;
       }
 
+      selected.allResults = [...mergedMatches.values()];
       renderResults({
-        photos: [...mergedMatches.values()],
+        photos: rankMatches(selected.allResults, filter),
       });
     } finally {
       if (flavorTimer) {
@@ -2714,7 +3285,23 @@ function formatEventAccessCode(value) {
     resetUpload();
   });
 
-  scanBtn?.addEventListener("click", scan);
+  scanBtn?.addEventListener("click", () => scan("all"));
+
+  matchControls.querySelectorAll("[data-match-filter]").forEach((button) => {
+    button.addEventListener("click", () => scan(button.dataset.matchFilter));
+  });
+
+  document.getElementById("face-quality-use")?.addEventListener("click", () => {
+    // Do not re-read the input or create a replacement file: scan() receives
+    // selected.files[0], the exact File instance quality just inspected.
+    scan();
+  });
+
+  document.getElementById("face-quality-another")?.addEventListener("click", () => {
+    resetUpload();
+    showStep("upload");
+    input?.click();
+  });
 
   document.getElementById("find-again-btn")?.addEventListener("click", () => {
     resetUpload();

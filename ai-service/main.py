@@ -7,6 +7,17 @@ import glob
 
 app = FastAPI(title="AI Photo Finder")
 
+def image_quality(img, embeddings):
+    """Measured image/face facts; no synthetic quality score."""
+    height, width = img.shape[:2]
+    brightness = float(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).mean())
+    faces = []
+    for item in embeddings:
+        area = item.get("facial_area") or {}
+        face_width, face_height = area.get("w", 0), area.get("h", 0)
+        faces.append({"relative_area": round((face_width * face_height) / max(width * height, 1), 5)})
+    return {"image_width": width, "image_height": height, "brightness": round(brightness, 1), "faces": faces}
+
 # --- MODEL OPTIMIZATION ---
 MODEL_NAME = "ArcFace"
 MODEL_LOADED = False
@@ -53,7 +64,7 @@ async def create_embedding(file: UploadFile = File(...)):
         if len(embedding) != 512:
             return {"face_found": False, "error": "DIMENSION_MISMATCH", "message": f"Expected 512, got {len(embedding)}"}
         
-        return {"face_found": True, "face_count": 1, "embedding": embedding}
+        return {"face_found": True, "face_count": len(embeddings), "embedding": embedding, "embeddings": [item["embedding"] for item in embeddings], "quality": image_quality(img, embeddings)}
     
     except Exception as e:
         return {"face_found": False, "error": "AI_FAILURE", "message": str(e)}

@@ -1,9 +1,28 @@
 (() => {
-  const API_BASE_URL = (
-    window.VITE_API_BASE_URL ||
-    window.__PHOTO_FINDER_API_BASE_URL__ ||
-    "http://localhost:5000"
-  ).replace(/\/$/, "");
+  // Keep an explicit deployment override, but derive local/LAN development
+  // requests from the page that the user actually opened.  In particular, a
+  // phone viewing http://<LAN-IP>:3000 must never send requests to the
+  // phone's own localhost.
+  function getDefaultApiBaseUrl() {
+    const { protocol, hostname } = window.location;
+    const apiProtocol = protocol === "https:" ? "https:" : "http:";
+
+    if (!hostname) {
+      throw new Error("Unable to determine the API host from the current page.");
+    }
+
+    return `${apiProtocol}//${hostname}:5000`;
+  }
+
+  const configuredApiBaseUrl =
+    window.VITE_API_BASE_URL || window.__PHOTO_FINDER_API_BASE_URL__;
+  const API_BASE_URL = (configuredApiBaseUrl || getDefaultApiBaseUrl()).replace(
+    /\/$/,
+    "",
+  );
+  // Access-code grants are deliberately memory-only. Refreshing or reopening
+  // the site clears them, so shared access cannot silently become permanent.
+  const sharedEventCodes = new Map();
 
   function apiUrl(path) {
     return `${API_BASE_URL}${path}`;
@@ -20,6 +39,14 @@
       ...extra,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+  }
+
+  function getEventHeaders(eventId, extra = {}) {
+    const accessCode = sharedEventCodes.get(String(eventId));
+    return getAuthHeaders({
+      ...extra,
+      ...(accessCode ? { "X-Event-Access-Code": accessCode } : {}),
+    });
   }
 
   async function parseApiResponse(response) {
@@ -133,10 +160,14 @@
       signal,
     });
 
-    return parseApiResponse(response);
+    const payload = await parseApiResponse(response);
+    if (payload?.event?.id) {
+      sharedEventCodes.set(String(payload.event.id), accessCode.trim().toUpperCase());
+    }
+    return payload;
   }
 
-  async function findMyPhotos(eventId, faceImage, signal) {
+  async function findMyPhotos(eventId, faceImage, signal, threshold = 0.5, matchCount = 50) {
     if (!eventId) {
       throw new Error("Event ID is required.");
     }
@@ -150,10 +181,12 @@
     formData.append("file", faceImage, faceImage.name || "selfie.jpg");
 
     formData.append("event_id", eventId);
+    formData.append("threshold", String(threshold));
+    formData.append("match_count", String(matchCount));
 
     const response = await fetch(apiUrl("/api/match"), {
       method: "POST",
-      headers: getAuthHeaders(),
+      headers: getEventHeaders(eventId),
       body: formData,
       signal,
     });
@@ -221,7 +254,7 @@
       apiUrl(`/api/events/${encodeURIComponent(eventId)}/photos`),
       {
         method: "GET",
-        headers: getAuthHeaders(),
+        headers: getEventHeaders(eventId),
         cache: "no-store",
         signal,
       },
@@ -247,6 +280,85 @@
     return parseApiResponse(response);
   }
 
+  async function deletePhoto(photoId, signal) {
+    const response = await fetch(apiUrl(`/photos/${encodeURIComponent(photoId)}`), { method: "DELETE", headers: getAuthHeaders(), signal });
+    return parseApiResponse(response);
+  }
+
+  async function setPhotoFavorite(eventId, photoId, loved, signal) {
+    const response = await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/photos/${encodeURIComponent(photoId)}/favorite`), {
+      method: "PUT", headers: getEventHeaders(eventId, { "Content-Type": "application/json" }), body: JSON.stringify({ loved }), signal,
+    });
+    return parseApiResponse(response);
+  }
+
+  async function loveAll(eventId, signal) {
+    const response = await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/favorites/all`), { method: "POST", headers: getEventHeaders(eventId), signal });
+    return parseApiResponse(response);
+  }
+
+  async function downloadFile(path, fallbackName, signal) {
+    const response = await fetch(apiUrl(path), { headers: getAuthHeaders(), signal });
+    if (!response.ok) return parseApiResponse(response);
+    const blob = await response.blob();
+    const match = /filename="?([^";]+)"?/i.exec(response.headers.get("content-disposition") || "");
+    return { blob, filename: match?.[1] || fallbackName };
+  }
+
+  function downloadEventFile(eventId, path, fallbackName, signal) {
+    return fetch(apiUrl(path), { headers: getEventHeaders(eventId), signal }).then(async (response) => {
+      if (!response.ok) return parseApiResponse(response);
+      const blob = await response.blob();
+      const match = /filename="?([^";]+)"?/i.exec(response.headers.get("content-disposition") || "");
+      return { blob, filename: match?.[1] || fallbackName };
+    });
+  }
+  async function checkFaceQuality(faceImage, signal) {
+    const formData = new FormData(); formData.append("file", faceImage, faceImage.name || "selfie.jpg");
+    return parseApiResponse(await fetch(apiUrl("/api/match/quality"), { method: "POST", headers: getAuthHeaders(), body: formData, signal }));
+  }
+  async function loveSelected(eventId, photoIds, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/favorites/selected`), { method: "POST", headers: getEventHeaders(eventId, { "Content-Type": "application/json" }), body: JSON.stringify({ photo_ids: photoIds }), signal })); }
+  function downloadPhoto(eventId, photoId, signal) { return downloadEventFile(eventId, `/api/events/${encodeURIComponent(eventId)}/photos/${encodeURIComponent(photoId)}/download`, "photo.jpg", signal); }
+  function downloadAll(eventId, signal) { return downloadEventFile(eventId, `/api/events/${encodeURIComponent(eventId)}/download`, "event-photos.zip", signal); }
+  function downloadLoved(eventId, signal) { return downloadEventFile(eventId, `/api/events/favorites/${encodeURIComponent(eventId)}/download`, "loved-photos.zip", signal); }
+  async function getLovedCollections(signal) {
+    const response = await fetch(apiUrl("/api/events/favorites/collections"), { headers: getAuthHeaders(), signal, cache: "no-store" });
+    return parseApiResponse(response);
+  }
+  async function getEventInsights(eventId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/insights`), { headers: getAuthHeaders(), signal })); }
+  async function createCollectionShare(collectionId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(collectionId)}/share`), { method: "POST", headers: getAuthHeaders(), signal })); }
+  async function getCollectionShare(collectionId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(collectionId)}/share`), { headers: getAuthHeaders(), signal })); }
+  async function revokeCollectionShare(collectionId, shareId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(collectionId)}/share/${encodeURIComponent(shareId)}`), { method: "DELETE", headers: getAuthHeaders(), signal })); }
+  async function getSharedCollection(token, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/shared/${encodeURIComponent(token)}`), { signal })); }
+  function downloadSharedCollectionPhoto(token, photoId, signal) { return downloadFile(`/api/loved-collections/shared/${encodeURIComponent(token)}/photos/${encodeURIComponent(photoId)}/download`, "photo.jpg", signal); }
+  function downloadSharedCollection(token, signal) { return downloadFile(`/api/loved-collections/shared/${encodeURIComponent(token)}/download`, "shared-loved-memories.zip", signal); }
+  async function getNamedLovedCollections(signal) { return parseApiResponse(await fetch(apiUrl("/api/loved-collections"), { headers: getAuthHeaders(), signal, cache: "no-store" })); }
+  function collectionPhotoPayload(photos) {
+    const photoIds = [];
+    const eventAccessCodes = {};
+
+    for (const photo of photos || []) {
+      if (typeof photo === "string") {
+        photoIds.push(photo);
+        continue;
+      }
+      if (!photo?.id) continue;
+      photoIds.push(photo.id);
+      const eventId = photo.event_id || photo.eventId;
+      const accessCode = eventId && sharedEventCodes.get(String(eventId));
+      if (accessCode) eventAccessCodes[String(eventId)] = accessCode;
+    }
+
+    return { photo_ids: photoIds, event_access_codes: eventAccessCodes };
+  }
+  async function createLovedCollection(name, photos, signal) { return parseApiResponse(await fetch(apiUrl("/api/loved-collections"), { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ name, ...collectionPhotoPayload(photos) }), signal })); }
+  async function getLovedCollection(id, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(id)}`), { headers: getAuthHeaders(), signal })); }
+  async function addCollectionPhotos(id, photos, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(id)}/photos`), { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(collectionPhotoPayload(photos)), signal })); }
+  async function removeCollectionPhoto(id, photoId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}`), { method: "DELETE", headers: getAuthHeaders(), signal })); }
+  async function deleteLovedCollection(id, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(id)}`), { method: "DELETE", headers: getAuthHeaders(), signal })); }
+  function downloadLovedCollection(id, signal) { return downloadFile(`/api/loved-collections/${encodeURIComponent(id)}/download`, "loved-memories.zip", signal); }
+  function downloadLovedCollectionPhoto(collectionId, photoId, signal) { return downloadFile(`/api/loved-collections/${encodeURIComponent(collectionId)}/photos/${encodeURIComponent(photoId)}/download`, "photo.jpg", signal); }
+
   window.PhotoFinderApi = {
     API_BASE_URL,
     healthCheck,
@@ -255,8 +367,18 @@
     generateAccessCode,
     redeemAccessCode,
     findMyPhotos,
+    checkFaceQuality,
     uploadEventPhotos,
     getEventPhotos,
     deleteEvent,
+    deletePhoto,
+    setPhotoFavorite,
+    loveAll, loveSelected,
+    downloadPhoto,
+    downloadAll,
+    downloadLoved,
+    getLovedCollections,
+    getEventInsights, createCollectionShare, getCollectionShare, revokeCollectionShare, getSharedCollection, downloadSharedCollectionPhoto, downloadSharedCollection,
+    getNamedLovedCollections, createLovedCollection, getLovedCollection, addCollectionPhotos, removeCollectionPhoto, deleteLovedCollection, downloadLovedCollection, downloadLovedCollectionPhoto,
   };
 })();
