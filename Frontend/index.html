@@ -99,6 +99,11 @@
               <span>UPLOAD EVENT PHOTOS</span> <span class="btn-arrow">↑</span>
             </button>
           </div>
+          <div class="hero-quick-links" aria-label="Explore product features">
+            <a href="#section-search" id="home-smart-search-link">SMART SEARCH <span>→</span></a>
+            <a href="#section-use-cases" id="home-stories-link">CURATED STORIES <span>→</span></a>
+            <a href="#section-editorial" id="home-features-link">FEATURES <span>→</span></a>
+          </div>
           <div class="hero-badges">
             <span class="hero-badge-pill">🔒 Private face search</span>
             <span class="hero-badge-pill">✨ Cinematic discovery</span>
@@ -220,56 +225,13 @@
             <span class="line-inner">UPLOAD ONCE. SHARE EASILY.</span>
           </h2>
           <p class="section-subheading">
-            A floating interface designed for effortless media ingestion and
-            code minting.
+            Create a private event, upload its real photos, and share access with an owner-issued code or QR.
           </p>
-
-          <div class="floating-upload-demo glass-panel">
-            <div class="upload-demo-header">
-              <div class="demo-window-dots">
-                <span></span><span></span><span></span>
-              </div>
-              <span class="demo-collection-title"
-                >Paris & Alps — Summer 2026</span
-              >
-              <span class="demo-status-pill" id="demo-status-pill"
-                >Processing Media</span
-              >
-            </div>
-
-            <div class="upload-demo-files-list">
-              <div class="demo-file-row done" id="demo-file-1">
-                <div class="file-icon">📸</div>
-                <div class="file-info">
-                  <span class="file-name">IMG_2841_PARIS.JPG</span>
-                  <span class="file-size">14.2 MB · READY TO PROCESS</span>
-                </div>
-                <div class="file-status">100% ✓</div>
-              </div>
-
-              <div class="demo-file-row done" id="demo-file-2">
-                <div class="file-icon">🎥</div>
-                <div class="file-info">
-                  <span class="file-name">VIDEO_019_EIFFEL_NIGHT.MP4</span>
-                  <span class="file-size">8.4 MB · READY TO PROCESS</span>
-                </div>
-                <div class="file-status">100% ✓</div>
-              </div>
-
-              <div class="demo-file-row active" id="demo-file-3">
-                <div class="file-icon">📸</div>
-                <div class="file-info">
-                  <span class="file-name">IMG_2847_LOUVRE.JPG</span>
-                  <span class="file-size">18.1 MB · READY TO PROCESS</span>
-                </div>
-                <div class="file-status">100% ✓</div>
-              </div>
-            </div>
-
-            <div class="demo-result-box" id="demo-result-box">
-              <span class="demo-ready-label">COLLECTION READY</span>
-              <div class="demo-code-stamp">PX7K-29QM</div>
-            </div>
+          <div class="home-search-entry glass-panel">
+            <span class="search-icon" aria-hidden="true">＋</span>
+            <div><strong>Your event, your gallery</strong>
+              <p>Owners can see real processing status and control event access from the dashboard.</p></div>
+            <button class="primary-button" type="button" id="home-create-event-btn">CREATE AN EVENT <span>→</span></button>
           </div>
         </div>
       </section>
@@ -285,17 +247,7 @@
               <span class="line-inner">YOUR ACCESS CODE</span>
             </h2>
 
-            <div class="access-code-animated-box" id="code-anim-box">
-              <span class="code-char">P</span>
-              <span class="code-char">X</span>
-              <span class="code-char">7</span>
-              <span class="code-char">K</span>
-              <span class="code-dash">-</span>
-              <span class="code-char">2</span>
-              <span class="code-char">9</span>
-              <span class="code-char">Q</span>
-              <span class="code-char">M</span>
-            </div>
+            <p class="section-subheading">Use the private code provided by an event owner. Codes are verified by the event service.</p>
 
             <form class="inline-code-form" id="inline-code-form">
               <div class="input-wrapper">
@@ -318,25 +270,15 @@
               <div class="code-status-msg" id="inline-code-msg"></div>
             </form>
 
-            <div class="code-quick-demo">
-              <button
-                type="button"
-                class="copy-code-pill-btn"
-                id="inline-copy-demo-btn"
-              >
-                <span id="copy-pill-icon">📋</span>
-                <span id="copy-pill-text">COPY CODE</span>
-              </button>
-            </div>
           </div>
         </div>
       </section>
 
-      <!-- Section 6: Smart Search & Search Results Demo -->
+      <!-- Section 6: Smart Search entry point -->
       <section class="scroll-section section-search" id="section-search">
         <div class="section-content wide">
           <p class="eyebrow animated-label">
-            <span class="label-line"></span>INTELLIGENT DISCOVERY
+            <span class="label-line"></span>SMART SEARCH · PRIVATE FACE MATCHING
           </p>
           <div class="search-heading-block">
             <h2 class="mask-line">
@@ -347,60 +289,17 @@
             </h2>
           </div>
           <p class="section-subheading">
-            Private AI face matching that helps you find your memories in an
-            event.
+            Search real photos in an event you can access. Add a clear face photo;
+            matches come from that event's stored face embeddings.
           </p>
 
-          <!-- Dynamic Typewriter Search Bar -->
-          <div class="search-demo-container">
-            <div class="search-bar-mockup">
-              <span class="search-icon">🔍</span>
-              <span class="search-typewriter-text" id="typewriter-text"></span>
-              <span class="typewriter-cursor">|</span>
-            </div>
-
-            <!-- Staggered Search Results Grid -->
-            <div class="search-results-mockup" id="search-results-grid">
-              <div class="result-card best-match" style="--delay: 0.1s">
-                <div class="result-badge best-badge">★ BEST MATCH</div>
-                <img
-                  src="/frames/ezgif-frame-010.jpg"
-                  alt="Match 1"
-                  loading="lazy"
-                />
-                <div class="result-overlay">
-                  <span>Paris Sunset · 98% Confidence</span>
-                </div>
-              </div>
-              <div class="result-card" style="--delay: 0.25s">
-                <div class="result-badge similar-badge">SIMILAR</div>
-                <img
-                  src="/frames/ezgif-frame-030.jpg"
-                  alt="Match 2"
-                  loading="lazy"
-                />
-                <div class="result-overlay"><span>Golden Hour · Sky</span></div>
-              </div>
-              <div class="result-card" style="--delay: 0.4s">
-                <div class="result-badge similar-badge">SIMILAR</div>
-                <img
-                  src="/frames/ezgif-frame-060.jpg"
-                  alt="Match 3"
-                  loading="lazy"
-                />
-                <div class="result-overlay"><span>Clouds & Wing</span></div>
-              </div>
-              <div class="result-card" style="--delay: 0.55s">
-                <div class="result-badge similar-badge">SIMILAR</div>
-                <img
-                  src="/frames/ezgif-frame-090.jpg"
-                  alt="Match 4"
-                  loading="lazy"
-                />
-                <div class="result-overlay"><span>Horizon Glow</span></div>
-              </div>
-            </div>
+          <div class="home-search-entry glass-panel">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <div><strong>Find your photos in a private event gallery</strong>
+              <p>No sample results or invented confidence. Choose an event and run a real face match.</p></div>
+            <button class="primary-button" type="button" data-home-action="find">FIND MY PHOTOS <span>→</span></button>
           </div>
+          <p class="product-flow" aria-label="Discover, find my photos, match, view memories">DISCOVER <span>→</span> FIND MY PHOTOS <span>→</span> MATCH <span>→</span> VIEW MEMORIES</p>
         </div>
       </section>
 
@@ -417,30 +316,34 @@
           <div class="editorial-feature-list" id="editorial-features">
             <div
               class="editorial-row"
-              data-preview="AI face matching with real confidence results."
+              role="button" tabindex="0" data-home-action="find"
+              data-preview="Search an event you can access using a real face photo and stored embeddings."
             >
               <span class="row-number">01</span>
-              <span class="row-title">AI PHOTO MATCHING</span>
-              <span class="row-tag">MATCH CONFIDENCE</span>
+              <span class="row-title">FIND MY PHOTOS</span>
+              <span class="row-tag">PRIVATE FACE SEARCH</span>
             </div>
             <div
               class="editorial-row"
+              role="button" tabindex="0" data-home-action="code"
               data-preview="Private storage with authorized event access."
             >
               <span class="row-number">02</span>
-              <span class="row-title">PRIVATE COLLECTIONS</span>
-              <span class="row-tag">AUTHORIZED ACCESS</span>
+              <span class="row-title">PRIVATE EVENT GALLERIES</span>
+              <span class="row-tag">CODE OR QR ACCESS</span>
             </div>
             <div
               class="editorial-row"
-              data-preview="One 8-character code unlocks instantaneous viewing on any browser."
+              role="button" tabindex="0" data-home-action="dashboard"
+              data-preview="Event owners can open a gallery and show its QR access link."
             >
               <span class="row-number">03</span>
-              <span class="row-title">EASY SHARING</span>
-              <span class="row-tag">QR EVENT ACCESS</span>
+              <span class="row-title">QR EVENT ACCESS</span>
+              <span class="row-tag">OWNER GALLERY TOOLS</span>
             </div>
             <div
               class="editorial-row"
+              role="button" tabindex="0" data-home-action="dashboard"
               data-preview="Photo uploads with visible AI processing status."
             >
               <span class="row-number">04</span>
@@ -449,6 +352,7 @@
             </div>
             <div
               class="editorial-row"
+              role="button" tabindex="0" data-home-action="dashboard"
               data-preview="Smooth responsive masonry with theater lightbox and keyboard navigation."
             >
               <span class="row-number">05</span>
@@ -457,11 +361,12 @@
             </div>
             <div
               class="editorial-row"
-              data-preview="Best Matches, Best Memories, and secure bulk downloads."
+              role="button" tabindex="0" data-home-action="loved"
+              data-preview="Save photos you love to a private collection from your dashboard."
             >
               <span class="row-number">06</span>
-              <span class="row-title">BEST MEMORIES</span>
-              <span class="row-tag">SMART FILTERS</span>
+              <span class="row-title">LOVED COLLECTIONS</span>
+              <span class="row-tag">SAVED BY YOU</span>
             </div>
           </div>
         </div>
@@ -497,9 +402,10 @@
                 photos with private face matching.
               </p>
               <div class="story-stats">
-                <span>✈️ Private event memories</span>
-                <span>🔒 Direct Code PX7K-29QM</span>
+                <span id="story-fact-one">Private event gallery</span>
+                <span id="story-fact-two">Real face matching</span>
               </div>
+              <button class="secondary-button" type="button" data-home-action="stories-find">EXPLORE AN EVENT <span>→</span></button>
             </div>
           </div>
         </div>
@@ -611,7 +517,7 @@
         <p class="eyebrow">HAVE A CODE?</p>
         <h2>ENTER YOUR ACCESS CODE</h2>
         <p class="modal-subtext">
-          Login to your account and enter the event code to get secure access.
+          Enter the code shared by the event owner. Access is verified by the event service.
         </p>
 
         <form id="modal-code-form">
@@ -639,9 +545,6 @@
           <p id="code-feedback-sub">Check the code and try again.</p>
         </div>
 
-        <div class="demo-code-pill" id="demo-code-pill">
-          <span>Try demo code:</span> <strong>PX7K-29QM</strong>
-        </div>
       </div>
     </div>
 
@@ -837,6 +740,20 @@
           <div class="collections-grid" id="loved-collections-grid">
             <!-- Populated dynamically via JS -->
           </div>
+          <div class="empty-state hidden" id="loved-collections-empty"><h3>NO LOVED COLLECTIONS</h3><p>Save Loved Photos into a named collection to keep them together.</p></div>
+        </div>
+        <div class="collections-section" id="loved-photos-section">
+          <div class="section-title-row"><h2>LOVED PHOTOS</h2></div>
+          <div class="collections-grid" id="loved-photos-grid"></div>
+          <div class="empty-state" id="loved-photos-empty"><h3>NO LOVED PHOTOS</h3><p>Photos you love in an event you can access will appear here.</p></div>
+        </div>
+        <div class="collections-section" id="recent-searches-section">
+          <div class="section-title-row"><h2>RECENT SEARCHES</h2></div>
+          <ul class="recent-searches-list" id="recent-searches-list"><li>Loading recent searches…</li></ul>
+        </div>
+        <div class="collections-section" id="recent-downloads-section">
+          <div class="section-title-row"><h2>RECENT DOWNLOADS</h2></div>
+          <ul class="recent-searches-list" id="recent-downloads-list"><li>Loading downloads…</li></ul>
         </div>
       </div>
     </div>
@@ -934,7 +851,7 @@
         </p>
 
         <div class="code-display-box">
-          <div class="code-value" id="generated-code-value">PX7K-29QM</div>
+          <div class="code-value" id="generated-code-value">—</div>
           <button class="copy-button" id="copy-code-btn" title="Copy code">
             <span id="copy-icon">📋</span>
             <span id="copy-text">COPY CODE</span>
@@ -958,9 +875,9 @@
         <div class="gallery-nav-inner">
           <button class="nav-btn nav-link" id="gallery-back-btn">← BACK</button>
           <div class="gallery-title-group">
-            <h2 id="gallery-title">PARIS TRIP — 2026</h2>
+            <h2 id="gallery-title">EVENT GALLERY</h2>
             <span class="gallery-meta" id="gallery-stats"
-              >24 event photos</span
+              >Loading event photos…</span
             >
           </div>
           <div
@@ -968,7 +885,7 @@
             id="gallery-code-badge"
             title="Click to copy code"
           >
-            <span>CODE:</span> <strong id="gallery-code-text">PX7K-29QM</strong>
+            <span>CODE:</span> <strong id="gallery-code-text">—</strong>
           </div>
 
           <div class="gallery-actions" aria-label="Collection actions">
@@ -976,9 +893,19 @@
             <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-add-btn">+ ADD PHOTOS</button>
             <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-qr-btn">▣ QR CODE</button>
             <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-analytics-btn">INSIGHTS</button>
+            <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-branding-btn">EDIT BRANDING</button>
+            <button type="button" class="secondary-button gallery-owner-action hidden" id="gallery-reindex-btn">RE-INDEX PHOTOS</button>
+            <button type="button" class="secondary-button" id="gallery-select-btn" aria-pressed="false">SELECT</button>
             <button type="button" class="secondary-button" id="gallery-love-all-btn" aria-label="Love all photos">♥ LOVE ALL</button>
             <button type="button" class="secondary-button" id="gallery-download-all-btn">↓ DOWNLOAD ALL</button>
           </div>
+        </div>
+        <div class="selection-toolbar hidden" id="gallery-selection-toolbar" aria-label="Selected photo actions">
+          <span id="gallery-selection-count">0 selected</span>
+          <button type="button" class="secondary-button" id="gallery-select-all-btn">SELECT ALL</button>
+          <button type="button" class="secondary-button" id="gallery-clear-selection-btn">CLEAR</button>
+          <button type="button" class="secondary-button" id="gallery-download-selected-btn">DOWNLOAD SELECTED</button>
+          <button type="button" class="primary-button" id="gallery-love-selected-btn">LOVE SELECTED</button>
         </div>
       </div>
 
@@ -1281,7 +1208,6 @@
 
     <!-- Scripts -->
     <script src="lenis.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" referrerpolicy="no-referrer"></script>
     <script src="api.js"></script>
     <script src="main.js"></script>
   </body>

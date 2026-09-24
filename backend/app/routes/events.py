@@ -158,6 +158,9 @@ import io
 import logging
 import mimetypes
 import zipfile
+import json
+from urllib.request import urlopen
+from urllib.error import URLError
 
 from typing import Annotated
 
@@ -165,6 +168,7 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from app.config import get_settings
 from app.dependencies import CurrentUser
 from app.services.authorization import can_access_event, get_event
 from app.services.image_hash import hamming_distance
@@ -175,12 +179,14 @@ router = APIRouter(prefix="/api/events", tags=["events"])
 logger = logging.getLogger(__name__)
 BUCKET = "event-photos"
 SIGNED_URL_EXPIRES_IN = 3600
-EVENT_COLUMNS = "id, name, date, created_at, owner_id, access_code"
+EVENT_COLUMNS = "id, name, date, created_at, owner_id, access_code, description, cover_photo_id"
 
 
 class EventBody(BaseModel):
     name: str | None = None
     date: object | None = None
+    description: str | None = None
+    cover_photo_id: str | None = None
 
 
 class RedeemBody(BaseModel):
@@ -202,12 +208,21 @@ def _user_id(user: object) -> str:
 def _event_public(event: dict) -> dict:
     return {
         field: event.get(field)
-        for field in ("id", "name", "date", "created_at", "owner_id", "access_code")
+        for field in ("id", "name", "date", "created_at", "owner_id", "access_code", "description", "cover_photo_id")
     }
 
 
 def _filename(photo: dict) -> str:
     return (photo.get("storage_path") or "photo").rsplit("/", 1)[-1]
+
+
+def _record_activity(event_id: str, user_id: str, kind: str) -> None:
+    try:
+        get_supabase().table("event_activity").insert({"event_id": event_id, "user_id": user_id, "kind": kind}).execute()
+    except Exception:
+        # Media access should not fail because an optional activity record could
+        # not be written (for example, before the analytics migration is run).
+        logger.warning("Could not record event activity kind=%s", kind)
 
 
 def _photo_for_event(event_id: str, photo_id: str) -> dict:
@@ -293,6 +308,90 @@ def generate_event_access_code(event_id: str, user: CurrentUser):
     return {"success": True, "event_id": event_id, "access_code": code}
 
 
+@router.get("/{event_id}/welcome")
+def event_welcome(event_id: str, user: CurrentUser, access_code: Annotated[str | None, Header(alias="X-Event-Access-Code")] = None):
+    event = get_event(event_id, "id, name, date, owner_id, description, access_code, cover_photo_id")
+    if not event:
+        raise HTTPException(status_code=404, detail={"success": False, "message": "Event not found"})
+    if not can_access_event(_user_id(user), event_id, access_code):
+        raise HTTPException(status_code=403, detail={"success": False, "message": "You do not have access to this event"})
+    photos = get_supabase().table("photos").select("id, processing_status, storage_path").eq("event_id", event_id).execute().data or []
+    statuses = {key: 0 for key in ("pending", "processing", "ready", "failed")}
+    for photo in photos:
+        if photo.get("processing_status") in statuses:
+            statuses[photo["processing_status"]] += 1
+    cover = next((photo for photo in photos if photo.get("id") == event.get("cover_photo_id") and photo.get("storage_path")), None)
+    cover = cover or next((photo for photo in photos if photo.get("storage_path")), None)
+    cover_url = None
+    if cover:
+        try:
+            signed = get_supabase().storage.from_(BUCKET).create_signed_url(cover["storage_path"], SIGNED_URL_EXPIRES_IN)
+            cover_url = signed.get("signedURL") or signed.get("signedUrl")
+        except Exception:
+            pass
+    return {"success": True, "event": {key: event.get(key) for key in ("id", "name", "date", "description", "cover_photo_id")}, "private": True, "cover_url": cover_url, "photo_count": len(photos), "processing": statuses}
+
+
+@router.patch("/{event_id}/branding")
+def update_event_branding(event_id: str, body: EventBody, user: CurrentUser):
+    event = get_event(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail={"success": False, "message": "Event not found"})
+    if event["owner_id"] != _user_id(user):
+        raise HTTPException(status_code=403, detail={"success": False, "message": "Only the event owner can edit branding"})
+    changes = {}
+    if body.name is not None:
+        if not body.name.strip():
+            raise HTTPException(status_code=400, detail={"success": False, "message": "Event name cannot be empty"})
+        changes["name"] = body.name.strip()
+    if body.description is not None:
+        changes["description"] = body.description.strip()[:280]
+    if "cover_photo_id" in body.model_fields_set:
+        if body.cover_photo_id is None or body.cover_photo_id == "":
+            changes["cover_photo_id"] = None
+        else:
+            photo = get_supabase().table("photos").select("id").eq("id", body.cover_photo_id).eq("event_id", event_id).execute().data or []
+            if not photo:
+                raise HTTPException(status_code=400, detail={"success": False, "message": "Cover photo must belong to this event"})
+            changes["cover_photo_id"] = body.cover_photo_id
+    if not changes:
+        raise HTTPException(status_code=400, detail={"success": False, "message": "No branding changes supplied"})
+    try:
+        response = get_supabase().table("events").update(changes).eq("id", event_id).eq("owner_id", _user_id(user)).select("id, name, description, cover_photo_id").execute()
+        rows = response.data or []
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"success": False, "message": "Could not update event branding"}) from exc
+    return {"success": True, "event": rows[0] if rows else {"id": event_id, **changes}}
+
+
+@router.get("/{event_id}/system-status")
+def event_system_status(event_id: str, user: CurrentUser):
+    event = get_event(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail={"success": False, "message": "Event not found"})
+    if event["owner_id"] != _user_id(user):
+        raise HTTPException(status_code=403, detail={"success": False, "message": "Only the event owner can view system status"})
+    settings = get_settings()
+    result = {"backend_api": True, "supabase": False, "photo_storage": False, "ai_service": False, "ai_processing": False}
+    try:
+        client = get_supabase()
+        client.table("events").select("id").eq("id", event_id).limit(1).execute()
+        result["supabase"] = True
+        client.storage.from_(BUCKET).list("", {"limit": 1})
+        result["photo_storage"] = True
+    except Exception:
+        pass
+    if settings.ai_service_url:
+        try:
+            with urlopen(f"{settings.ai_service_url.rstrip('/')}/health", timeout=2) as response:
+                data = json.loads(response.read())
+                result["ai_service"] = response.status == 200
+                result["ai_processing"] = result["ai_service"] and bool(data.get("model_loaded"))
+        except (URLError, TimeoutError, ValueError, OSError):
+            pass
+    return {"success": True, "status": result}
+
+
 @router.get("/{event_id}/photos")
 def event_photos(event_id: str, user: CurrentUser, access_code: Annotated[str | None, Header(alias="X-Event-Access-Code")] = None):
     event = get_event(event_id)
@@ -340,6 +439,7 @@ def download_photo(event_id: str, photo_id: str, user: CurrentUser, access_code:
     except Exception as exc:
         logger.exception("Photo download failed")
         raise HTTPException(status_code=500, detail={"success": False, "message": "Could not download this photo"}) from exc
+    _record_activity(event_id, _user_id(user), "download")
     filename = _filename(photo)
     return Response(content=content, media_type=mimetypes.guess_type(filename)[0] or "application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
@@ -357,7 +457,29 @@ def download_event(event_id: str, user: CurrentUser, access_code: Annotated[str 
     except Exception as exc:
         logger.exception("Event archive failed")
         raise HTTPException(status_code=500, detail={"success": False, "message": "Could not prepare download"}) from exc
+    _record_activity(event_id, _user_id(user), "download")
     return Response(content=archive.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="event-{event_id}-photos.zip"'})
+
+
+@router.post("/{event_id}/photos/download-selected")
+def download_selected_photos(event_id: str, body: FavoritePhotosBody, user: CurrentUser, access_code: Annotated[str | None, Header(alias="X-Event-Access-Code")] = None):
+    _require_access(event_id, user, access_code)
+    ids = list(dict.fromkeys(body.photo_ids))
+    if not ids:
+        raise HTTPException(status_code=400, detail={"success": False, "message": "Select at least one photo"})
+    photos = get_supabase().table("photos").select("id, event_id, storage_path").eq("event_id", event_id).in_("id", ids).execute().data or []
+    if len(photos) != len(ids) or any(not photo.get("storage_path") for photo in photos):
+        raise HTTPException(status_code=400, detail={"success": False, "message": "One or more selected photos are unavailable"})
+    archive = io.BytesIO()
+    try:
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:
+            for photo in photos:
+                zipped.writestr(_filename(photo), get_supabase().storage.from_(BUCKET).download(photo["storage_path"]))
+    except Exception as exc:
+        logger.exception("Selected photo archive failed")
+        raise HTTPException(status_code=500, detail={"success": False, "message": "Could not prepare selected photos"}) from exc
+    _record_activity(event_id, _user_id(user), "download")
+    return Response(content=archive.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="selected-{event_id}-photos.zip"'})
 
 
 @router.put("/{event_id}/photos/{photo_id}/favorite")
@@ -402,6 +524,18 @@ def favorite_selected(event_id: str, body: FavoritePhotosBody, user: CurrentUser
     return {"success": True, "count": len(ids)}
 
 
+@router.delete("/{event_id}/favorites/selected")
+def unfavorite_selected(event_id: str, body: FavoritePhotosBody, user: CurrentUser, access_code: Annotated[str | None, Header(alias="X-Event-Access-Code")] = None):
+    _require_access(event_id, user, access_code)
+    ids = list(dict.fromkeys(body.photo_ids))
+    photos = get_supabase().table("photos").select("id").eq("event_id", event_id).in_("id", ids).execute().data or [] if ids else []
+    if len(photos) != len(ids):
+        raise HTTPException(status_code=400, detail={"success": False, "message": "One or more photos do not belong to this event"})
+    if ids:
+        get_supabase().table("photo_favorites").delete().eq("user_id", _user_id(user)).in_("photo_id", ids).execute()
+    return {"success": True, "count": len(ids)}
+
+
 @router.get("/favorites/collections")
 def loved_collections(user: CurrentUser):
     try:
@@ -435,6 +569,7 @@ def download_loved(event_id: str, user: CurrentUser, access_code: Annotated[str 
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:
         for photo in photos:
             zipped.writestr(_filename(photo), get_supabase().storage.from_(BUCKET).download(photo["storage_path"]))
+    _record_activity(event_id, _user_id(user), "download")
     return Response(content=archive.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="loved-{event_id}.zip"'})
 
 
@@ -503,3 +638,12 @@ def event_insights(event_id: str, user: CurrentUser):
     favorite_rows = supabase.table("photo_favorites").select("photo_id").in_("photo_id", photo_ids).execute().data or [] if photo_ids else []
     collection_rows = supabase.table("loved_collections").select("id").eq("user_id", user.id).execute().data or []
     return {"success": True, "event_id": event_id, "metrics": {"total_photos": len(photos), **statuses, **activity_counts, "loved_photos": len(favorite_rows), "loved_collections": len(collection_rows)}, "activity": activity}
+
+
+@router.get("/me/activity")
+def my_activity(user: CurrentUser):
+    rows = get_supabase().table("event_activity").select("event_id, kind, created_at").eq("user_id", user.id).order("created_at", desc=True).limit(30).execute().data or []
+    event_ids = list({row["event_id"] for row in rows})
+    events = get_supabase().table("events").select("id, name").in_("id", event_ids).execute().data if event_ids else []
+    names = {row["id"]: row["name"] for row in events}
+    return {"success": True, "activity": [{**row, "event_name": names.get(row["event_id"], "Event")} for row in rows]}

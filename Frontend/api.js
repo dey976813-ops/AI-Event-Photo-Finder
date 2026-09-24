@@ -1,31 +1,43 @@
 (() => {
-  // Keep an explicit deployment override, but derive local/LAN development
-  // requests from the page that the user actually opened.  In particular, a
-  // phone viewing http://<LAN-IP>:3000 must never send requests to the
-  // phone's own localhost.
-  function getDefaultApiBaseUrl() {
+  // API routing follows the current page host on every request. Share-origin
+  // discovery is intentionally separate and is used only for generated links.
+  function getApiBaseUrl() {
     const { protocol, hostname } = window.location;
     const apiProtocol = protocol === "https:" ? "https:" : "http:";
-
     if (!hostname) {
       throw new Error("Unable to determine the API host from the current page.");
     }
-
     return `${apiProtocol}//${hostname}:5000`;
   }
-
-  const configuredApiBaseUrl =
-    window.VITE_API_BASE_URL || window.__PHOTO_FINDER_API_BASE_URL__;
-  const API_BASE_URL = (configuredApiBaseUrl || getDefaultApiBaseUrl()).replace(
-    /\/$/,
-    "",
-  );
   // Access-code grants are deliberately memory-only. Refreshing or reopening
   // the site clears them, so shared access cannot silently become permanent.
   const sharedEventCodes = new Map();
 
   function apiUrl(path) {
-    return `${API_BASE_URL}${path}`;
+    return `${getApiBaseUrl()}${path}`;
+  }
+
+  async function buildReachableUrl(path = "/", searchParams = {}) {
+    const host = window.location.hostname.toLowerCase();
+    const loopback = host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]" || host === "0.0.0.0";
+    let origin = window.location.origin;
+    if (loopback) {
+      // Fetch on every share attempt. Runtime interfaces can change while the
+      // frontend stays open, so no detected address is retained in memory.
+      const response = await fetch("/api/runtime-config", { cache: "no-store" });
+      if (!response.ok) throw new Error("Could not detect a reachable LAN address for this device.");
+      const config = await response.json();
+      const candidates = Array.isArray(config?.lanOrigins) ? config.lanOrigins : [];
+      origin = config?.lanOrigin || config?.LAN_ORIGIN || candidates[0]?.origin || candidates[0];
+    }
+    if (typeof origin !== "string") throw new Error("No non-loopback LAN address is available. Open the app using the PC's LAN address.");
+    const parsed = new URL(origin);
+    if (["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"].includes(parsed.hostname.toLowerCase())) throw new Error("Refusing to create a cross-device link to localhost.");
+    const url = new URL(path || "/", parsed.origin);
+    for (const [key, value] of Object.entries(searchParams || {})) {
+      if (value !== null && value !== undefined) url.searchParams.set(key, String(value));
+    }
+    return url.toString();
   }
 
   function getAuthToken() {
@@ -318,6 +330,13 @@
     return parseApiResponse(await fetch(apiUrl("/api/match/quality"), { method: "POST", headers: getAuthHeaders(), body: formData, signal }));
   }
   async function loveSelected(eventId, photoIds, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/favorites/selected`), { method: "POST", headers: getEventHeaders(eventId, { "Content-Type": "application/json" }), body: JSON.stringify({ photo_ids: photoIds }), signal })); }
+  async function unloveSelected(eventId, photoIds, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/favorites/selected`), { method: "DELETE", headers: getEventHeaders(eventId, { "Content-Type": "application/json" }), body: JSON.stringify({ photo_ids: photoIds }), signal })); }
+  async function downloadSelected(eventId, photoIds, signal) {
+    const response = await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/photos/download-selected`), { method: "POST", headers: getEventHeaders(eventId, { "Content-Type": "application/json" }), body: JSON.stringify({ photo_ids: photoIds }), signal });
+    if (!response.ok) return parseApiResponse(response);
+    const blob = await response.blob(); const match = /filename="?([^";]+)"?/i.exec(response.headers.get("content-disposition") || "");
+    return { blob, filename: match?.[1] || "selected-photos.zip" };
+  }
   function downloadPhoto(eventId, photoId, signal) { return downloadEventFile(eventId, `/api/events/${encodeURIComponent(eventId)}/photos/${encodeURIComponent(photoId)}/download`, "photo.jpg", signal); }
   function downloadAll(eventId, signal) { return downloadEventFile(eventId, `/api/events/${encodeURIComponent(eventId)}/download`, "event-photos.zip", signal); }
   function downloadLoved(eventId, signal) { return downloadEventFile(eventId, `/api/events/favorites/${encodeURIComponent(eventId)}/download`, "loved-photos.zip", signal); }
@@ -326,6 +345,11 @@
     return parseApiResponse(response);
   }
   async function getEventInsights(eventId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/insights`), { headers: getAuthHeaders(), signal })); }
+  async function getEventWelcome(eventId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/welcome`), { headers: getEventHeaders(eventId), cache: "no-store", signal })); }
+  async function updateEventBranding(eventId, branding, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/branding`), { method: "PATCH", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(branding), signal })); }
+  async function getSystemStatus(eventId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/events/${encodeURIComponent(eventId)}/system-status`), { headers: getAuthHeaders(), cache: "no-store", signal })); }
+  async function reindexEventPhotos(eventId, signal) { return parseApiResponse(await fetch(apiUrl(`/photos/events/${encodeURIComponent(eventId)}/reindex`), { method: "POST", headers: getAuthHeaders(), signal })); }
+  async function getMyActivity(signal) { return parseApiResponse(await fetch(apiUrl("/api/events/me/activity"), { headers: getAuthHeaders(), cache: "no-store", signal })); }
   async function createCollectionShare(collectionId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(collectionId)}/share`), { method: "POST", headers: getAuthHeaders(), signal })); }
   async function getCollectionShare(collectionId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(collectionId)}/share`), { headers: getAuthHeaders(), signal })); }
   async function revokeCollectionShare(collectionId, shareId, signal) { return parseApiResponse(await fetch(apiUrl(`/api/loved-collections/${encodeURIComponent(collectionId)}/share/${encodeURIComponent(shareId)}`), { method: "DELETE", headers: getAuthHeaders(), signal })); }
@@ -360,7 +384,9 @@
   function downloadLovedCollectionPhoto(collectionId, photoId, signal) { return downloadFile(`/api/loved-collections/${encodeURIComponent(collectionId)}/photos/${encodeURIComponent(photoId)}/download`, "photo.jpg", signal); }
 
   window.PhotoFinderApi = {
-    API_BASE_URL,
+    get API_BASE_URL() { return getApiBaseUrl(); },
+    getApiBaseUrl,
+    buildReachableUrl,
     healthCheck,
     getEvents,
     createEvent,
@@ -373,12 +399,14 @@
     deleteEvent,
     deletePhoto,
     setPhotoFavorite,
-    loveAll, loveSelected,
+    loveAll, loveSelected, unloveSelected,
+    downloadSelected,
     downloadPhoto,
     downloadAll,
     downloadLoved,
     getLovedCollections,
     getEventInsights, createCollectionShare, getCollectionShare, revokeCollectionShare, getSharedCollection, downloadSharedCollectionPhoto, downloadSharedCollection,
+    getEventWelcome, updateEventBranding, getSystemStatus, getMyActivity, reindexEventPhotos,
     getNamedLovedCollections, createLovedCollection, getLovedCollection, addCollectionPhotos, removeCollectionPhoto, deleteLovedCollection, downloadLovedCollection, downloadLovedCollectionPhoto,
   };
 })();

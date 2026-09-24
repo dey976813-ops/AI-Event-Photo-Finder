@@ -17,6 +17,7 @@ from app.utils.access_code import verify_access_code
 
 router = APIRouter(prefix="/api/loved-collections", tags=["loved collections"])
 BUCKET = "event-photos"
+MAX_COLLECTION_PHOTO_BYTES = 10 * 1024 * 1024
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +118,24 @@ def _authorized_photos(photo_ids: list[str], user_id: str, event_access_codes: d
     return photos
 
 
+def _validate_collection_photo_sizes(photos: list[dict]) -> None:
+    """Check authoritative stored objects before mutating collection rows."""
+    storage = get_supabase().storage.from_(BUCKET)
+    try:
+        for photo in photos:
+            content = storage.download(photo["storage_path"])
+            if len(content) > MAX_COLLECTION_PHOTO_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail={"success": False, "message": "A selected photo is over the 10 MB collection limit. Remove it and try again."},
+                )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Loved collection size validation failed")
+        raise HTTPException(status_code=502, detail={"success": False, "message": "Could not verify selected photo sizes. No collection was saved."}) from exc
+
+
 def _detail(collection: dict, user_id: str) -> dict:
     memberships = get_supabase().table("loved_collection_photos").select("photo_id, created_at").eq("collection_id", collection["id"]).order("created_at").execute().data or []
     ids = [row["photo_id"] for row in memberships]
@@ -206,10 +225,26 @@ def create_collection(body: CollectionBody, user: CurrentUser):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail={"success": False, "message": "Collection name is required"})
-    _authorized_photos(body.photo_ids, user.id, body.event_access_codes)
-    collection = _one(get_supabase().table("loved_collections").insert({"user_id": user.id, "name": name}).select("id, user_id, name, created_at").execute())
-    get_supabase().table("loved_collection_photos").upsert([{"collection_id": collection["id"], "photo_id": photo_id} for photo_id in set(body.photo_ids)], on_conflict="collection_id,photo_id").execute()
-    return {"success": True, "collection": _detail(collection, user.id)}
+    photos = _authorized_photos(body.photo_ids, user.id, body.event_access_codes)
+    _validate_collection_photo_sizes(photos)
+    collection = None
+    try:
+        collection = _one(get_supabase().table("loved_collections").insert({"user_id": user.id, "name": name}).select("id, user_id, name, created_at").execute())
+        if not collection or not collection.get("id"):
+            raise RuntimeError("Collection insert returned no record")
+        get_supabase().table("loved_collection_photos").upsert([{"collection_id": collection["id"], "photo_id": photo_id} for photo_id in set(body.photo_ids)], on_conflict="collection_id,photo_id").execute()
+        return {"success": True, "collection": _detail(collection, user.id)}
+    except Exception as exc:
+        if collection and collection.get("id"):
+            try:
+                get_supabase().table("loved_collection_photos").delete().eq("collection_id", collection["id"]).execute()
+                get_supabase().table("loved_collections").delete().eq("id", collection["id"]).eq("user_id", user.id).execute()
+            except Exception:
+                logger.exception("Could not roll back failed loved collection creation")
+        if isinstance(exc, HTTPException):
+            raise
+        logger.exception("Loved collection creation failed; partial rows rolled back")
+        raise HTTPException(status_code=500, detail={"success": False, "message": "Could not save this collection. No partial collection was kept."}) from exc
 
 
 @router.get("/{collection_id}")
@@ -220,7 +255,8 @@ def get_collection(collection_id: str, user: CurrentUser):
 @router.post("/{collection_id}/photos")
 def add_photos(collection_id: str, body: PhotoIdsBody, user: CurrentUser):
     _owned(collection_id, user.id)
-    _authorized_photos(body.photo_ids, user.id, body.event_access_codes)
+    photos = _authorized_photos(body.photo_ids, user.id, body.event_access_codes)
+    _validate_collection_photo_sizes(photos)
     get_supabase().table("loved_collection_photos").upsert([{"collection_id": collection_id, "photo_id": photo_id} for photo_id in set(body.photo_ids)], on_conflict="collection_id,photo_id").execute()
     return {"success": True, "collection": _detail(_owned(collection_id, user.id), user.id)}
 

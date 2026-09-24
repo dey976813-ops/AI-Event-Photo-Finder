@@ -2,9 +2,12 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const os = require('os');
+const dgram = require('dgram');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const QRCode = require('qrcode');
 const db = require('./db');
 
 const app = express();
@@ -48,6 +51,77 @@ const upload = multer({
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+async function getRoutedAddress() {
+  const routedAddress = await new Promise((resolve) => {
+    const socket = dgram.createSocket('udp4');
+    const finish = (value) => { try { socket.close(); } catch {} resolve(value); };
+    const timer = setTimeout(() => finish(null), 500);
+    socket.once('error', () => { clearTimeout(timer); finish(null); });
+    socket.connect(80, '8.8.8.8', () => {
+      clearTimeout(timer);
+      const address = socket.address().address;
+      finish(address && address !== '0.0.0.0' && !address.startsWith('127.') ? address : null);
+    });
+  });
+  return routedAddress;
+}
+
+async function getLanOrigins() {
+  const routedAddress = await getRoutedAddress();
+  const candidates = [];
+  const privateV4 = (value) => /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(value);
+  const hotspotName = (value) => /(mobile\s*hotspot|hotspot|wi-?fi\s*direct|hosted\s*network|local area connection\s*\*)/i.test(value);
+  for (const [name, addresses] of Object.entries(os.networkInterfaces())) {
+    for (const address of addresses || []) {
+      if ((address.family !== 'IPv4' && address.family !== 4) || address.internal || !privateV4(address.address)) continue;
+      const hotspot = hotspotName(name);
+      const virtual = !hotspot && /(virtual|vmware|vbox|virtualbox|docker|wsl|hyper-v|vpn|tunnel|wireguard|tailscale|zerotier|\btap\b|loopback)/i.test(name);
+      const physical = /(wi-?fi|wlan|wireless|ethernet|^(en|eth|wl)\d)/i.test(name);
+      if (!virtual) candidates.push({ address: address.address, interface: name, hotspot, physical, origin: `http://${address.address}:${PORT}` });
+    }
+  }
+  const unique = [...new Map(candidates.map((candidate) => [candidate.address, candidate])).values()];
+  // Interfaces returned here are currently assigned to this machine; the
+  // frontend listener is bound to 0.0.0.0, so its current private addresses
+  // are the device-reachable origins. Reuse a loopback TCP probe would reject
+  // Windows Wi-Fi Direct/hotspot interfaces under some firewall profiles.
+  const reachable = unique;
+  const configured = String(process.env.LAN_ORIGIN || '').trim();
+  let configuredAddress = null;
+  if (configured) {
+    try { configuredAddress = new URL(configured).hostname; } catch { /* Ignore malformed overrides. */ }
+  }
+  const selected =
+    reachable.find((candidate) => candidate.hotspot) ||
+    reachable.find((candidate) => candidate.address === configuredAddress) ||
+    reachable.find((candidate) => candidate.address === routedAddress) ||
+    reachable.find((candidate) => candidate.physical) ||
+    reachable[0] || null;
+  return { origin: selected?.origin || null, candidates: reachable };
+}
+
+app.get('/api/runtime-config', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const { origin, candidates } = await getLanOrigins();
+  res.json({ origin, lanOrigin: origin, LAN_ORIGIN: origin, lanOrigins: candidates });
+});
+
+// Generate the same QR image used by event and loved-collection sharing
+// without relying on a third-party browser CDN.
+app.post('/api/qr', async (req, res) => {
+  const text = req.body?.text;
+  if (typeof text !== 'string' || !text.trim() || text.length > 2048) {
+    return res.status(400).json({ error: 'A QR value up to 2048 characters is required.' });
+  }
+  try {
+    const image = await QRCode.toBuffer(text, { type: 'png', errorCorrectionLevel: 'M', margin: 2, width: 512 });
+    res.set('Cache-Control', 'no-store');
+    res.type('png').send(image);
+  } catch {
+    res.status(500).json({ error: 'Could not generate the QR image.' });
+  }
+});
 
 // Cache header middleware for frames
 app.use('/frames', (req, res, next) => {
